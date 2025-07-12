@@ -16,7 +16,6 @@ Connexion Internet (pour télécharger les bases de données)
 
 # Installation
 1. Clonage du projet
-bashgit clone <votre-repo>
 cd security-risk-analysis
 2. Installation des dépendances
 bashpip install -r requirements.txt
