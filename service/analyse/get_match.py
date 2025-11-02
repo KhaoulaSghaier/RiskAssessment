@@ -1,4 +1,4 @@
-import utils
+from service.analyse import utils
 from sentence_transformers import SentenceTransformer,util
 import os
 import  numpy as np

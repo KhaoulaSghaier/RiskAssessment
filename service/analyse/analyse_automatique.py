@@ -1,8 +1,8 @@
 
 
-from TARA import *
-from HARA import *
-from DREAD import *
+from service.analyse.TARA import *
+from service.analyse.HARA import *
+from service.analyse.DREAD import *
 
 
 
