@@ -94,6 +94,8 @@ class TARA:
                                      cvss_mapping["attack_complexity"][attack_complexity.upper()],
                                      cvss_mapping["privileges_required"][privilege_required.upper()],
                                      cvss_mapping["user_interaction"][user_interaction.upper()]])
+        if attack_vector.upper() not in cvss_mapping["attack_vector"]:
+            raise ValueError(f"Invalid attack vector: {attack_vector.upper()}. Valid options: {list(cvss_mapping['attack_vector'].keys())}")
 
     def getImpactInfo(self):
         """

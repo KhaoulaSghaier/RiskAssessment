@@ -1,5 +1,3 @@
-
-
 from service.analyse.TARA import *
 from service.analyse.HARA import *
 from service.analyse.DREAD import *
@@ -56,6 +54,46 @@ test_case  = {
     }
     
 """
+
+RISK_LEVELS = {
+    'VERY_LOW': {
+        'range': (0, 1.0),
+        'numeric': 1,
+        'color': '🟢',
+        #'action': 'Accept - No action required',
+        'priority': 5
+    },
+    'LOW': {
+        'range': (1.0, 2.0),
+        'numeric': 2,
+        'color': '🟡',
+        #'action': 'Monitor - Review periodically',
+        'priority': 4
+    },
+    'MEDIUM': {
+        'range': (2.0, 3.5),
+        'numeric': 3,
+        'color': '🟠',
+        #'action': 'Mitigate - Plan risk treatment',
+        'priority': 3
+    },
+    'HIGH': {
+        'range': (3.5, 4.5),
+        'numeric': 4,
+        'color': '🔴',
+        #'action': 'Remediate - Immediate action required',
+        'priority': 2
+    },
+    'CRITICAL': {
+        'range': (4.5, 5.0),
+        'numeric': 5,
+        'color': '🚨',
+        #'action': 'Emergency - Stop deployment',
+        'priority': 1
+    }
+}
+
+
 
 class analyse_automatique:
     def __init__(self,scenario):
@@ -126,8 +164,50 @@ class analyse_automatique:
         print('HARA:', val1)
         print('TARA:', val2)
         print('DREAD', val3)
-        return max(val1,val2,val3)
+        
+        #return max(val1,val2,val3)
+        aggregator = RiskAggregator(
+            tara_score=val2,
+            hara_score=val1,
+            dread_score=val3,
+            safety_critical_update = self.scenario['safety_critical_update'] 
+            )
+        return aggregator.weighted_aggregation()
+    
+    def get_risk_level(self, score):
+        #Map continuous score (0-5) to risk level
+        for level, props in RISK_LEVELS.items():
+            if props['range'][0] <= score < props['range'][1]:
+                return level, props
+        return 'CRITICAL', RISK_LEVELS['CRITICAL']  # Fallback for score >= 5
 
+class RiskAggregator:
+    def __init__(self, tara_score, hara_score, dread_score, safety_critical_update=False):
+        """
+        Args:
+            tara_score: Cyber threat risk (0-5)
+            hara_score: Safety hazard level (0-5) 
+            dread_score: Attack impact scale (0-5)
+            safety_critical: Boolean flag for safety-critical updates
+        """
+        self.tara = tara_score
+        self.hara = hara_score
+        self.dread = dread_score
+        self.safety_critical_update = safety_critical_update
+        
+    def weighted_aggregation(self):
+        # Define weights based on context
+        if self.safety_critical_update:
+            # Safety-critical: HARA dominates (50% weight)
+            w_tara = 0.25
+            w_hara = 0.50  # Double weight for functional safety
+            w_dread = 0.25
+        else:
+            # Non-critical: Balanced approach
+            w_tara = 0.40  # Automotive
+            w_hara = 0.40  # Automotive
+            w_dread = 0.20  # Attack scale matters
 
+        return self.hara * w_hara + self.tara * w_tara + self.dread * w_dread
 #value = analyse_automatique(test_case).get_risk()
 #print(value)

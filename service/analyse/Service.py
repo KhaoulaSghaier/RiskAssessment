@@ -1,5 +1,4 @@
-
-from service.analyse.analyse_automatique import analyse_automatique
+from service.analyse.analyse_automatique import analyse_automatique, RiskAggregator
 from service.analyse import utils
 from service.analyse.get_match import get_top_match
 from service.analyse.capec_attack import *
@@ -126,8 +125,8 @@ def get_analyse(template_base):
     try:
         #Pass ota_context=True for OTA-specific adjustments
         necessary_material, operation_impact = utils.parse_cwe_info(
-            getSimilar[2]['id'],
-            ota_context=True  # Enable OTA adjustments
+            getSimilar[2]['id']
+            #, ota_context=True  # Enable OTA adjustments
         )
     except Exception as e:
         print(f"CWE parsing error: {e}")
@@ -175,6 +174,7 @@ def get_analyse(template_base):
         'attack_complexity': attack_complexity,
         "privileges_required": elt1,
         "user_interaction": user_interaction,
+        "safety_critical_update" : template_base.get('safety_critical_update')
     }
     
     print("\n✅ Analysis complete!")
@@ -186,15 +186,19 @@ def get_analyse(template_base):
 
 if __name__ == '__main__':
     template_base = {
-        'description':"The server 'ThingsBoard Server' could be a subject to a cross-site scripting attack that will compromise safety critical update by infecting the malware into the OTA source that could lead to modification of the  metadata in the IPFS or the redirection of the downloading in malicious deposit",
+        #'description':"The server 'ThingsBoard Server' could be a subject to a cross-site scripting attack that will compromise safety critical update by infecting the malware into the OTA source that could lead to modification of the  metadata in the IPFS or the redirection of the downloading in malicious deposit",
         #'description': "A vulnerability in the web-based management interface of Cisco Small Business RV320 and RV325 Dual Gigabit WAN VPN Routers could allow an authenticated, remote attacker to conduct a cross-site scripting (XSS) attack against a user of the interface. The vulnerability is due to insufficient input validation of user-supplied data. An attacker could exploit this vulnerability by sending a crafted HTTP request to the web-based management interface. A successful exploit could allow the attacker to execute arbitrary script code in the context of the interface or access sensitive browser-based information.",
         #'description': "A debug/diagnostic HTTP endpoint on the vehicle’s infotainment module exposes OTA metadata (current version, staged rollout flags, scheduled update times, CDN URLs, partial hashes) without authentication when queried from the vehicle’s local network (e.g., passenger Wi-Fi or Bluetooth-tethered phone). The endpoint does not allow uploading or triggering updates — it only reveals metadata",
-        #'description': "The infotainment unit fetches OTA manifests (or parts of them) from an update CDN using plain HTTP (no TLS) while connected to the vehicle’s passenger Wi-Fi / hotspot. An attacker on the same Wi-Fi/AP can perform ARP spoofing or a rogue AP attack and tamper with or replay manifest responses (metadata only — signatures are validated by the client, so binary substitution is not possible).",
-        'safety_critical_update': True,
+        'description': "The infotainment unit fetches OTA manifests (or parts of them) from an update CDN using plain HTTP (no TLS) while connected to the vehicle’s passenger Wi-Fi / hotspot. An attacker on the same Wi-Fi/AP can perform ARP spoofing or a rogue AP attack and tamper with or replay manifest responses (metadata only — signatures are validated by the client, so binary substitution is not possible).",
+        #'description': "Malicious OTA firmware update.This four-stage attack begins with the attacker gaining access to the backend OTA update server, replacing a legitimate HPC firmware update with a malicious version, and signing it with a stolen cryptographic key. The vehicle, trusting the valid signature, downloads and installs the malicious firmware via its external telematics cellular interface",
+        'safety_critical_update': False,
         'affected_user': 'High', # "High" "Medium" "Low"
-        'knowlege_cible': "LOW",
+        'knowlege_cible': "HIGH",
         'necessary_material': "LOW",
     }
     get_analyse_template = get_analyse(template_base)
     print("template d'analyse :", get_analyse_template)
-    print("Risque associé :", analyse_automatique(get_analyse_template).get_risk())
+    #print("Risque associé :", analyse_automatique(get_analyse_template).get_risk())
+    risk_level = analyse_automatique(get_analyse_template).get_risk_level(analyse_automatique(get_analyse_template).get_risk())
+    print("Niveau de risque associé :", risk_level)
+    #print ("Agrégation des risques :", RiskAggregator.weighted_harmonic_aggregation([get_analyse_template]))

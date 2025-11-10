@@ -94,7 +94,7 @@ def parse_nvd_json(year=None) -> pd.DataFrame:
         else:
         # 3) Aucune métrique dispo
             attack =  {
-            "attack_vector": None,
+            "attack_vector": "NETWORK",
             "attack_complexity": 'Low',
             "privilege_required": None,
             "user_interaction": None,
@@ -558,7 +558,7 @@ def extract_operation_impact(row):
             max_score = max(max_score, score)
     
     # Scope multipliers (certain scopes are more critical for OTA)
-    critical_scopes = ['integrity', 'access control', 'confidentiality']
+    critical_scopes = ['integrity', 'access control'] #, 'confidentiality']
     for scope in critical_scopes:
         if scope in consequences:
             max_score = min(10, max_score + 1)  # Boost score
@@ -668,12 +668,12 @@ def extract_exploit_likelihood(row):
     return 5  # Default: medium likelihood
 
 
-def adjust_for_ota_context(cwe_id, necessary_material, operation_impact, detection_difficulty, exploit_likelihood):
-    """
+"""def adjust_for_ota_context(cwe_id, necessary_material, operation_impact, detection_difficulty, exploit_likelihood):
+    
     Adjust scores for OTA update context in automotive
     
     OTA-critical CWEs get boosted scores
-    """
+    
     # OTA-critical CWEs (authentication, crypto, updates)
     ota_critical_cwes = {
         '347': {'operation_impact': +2, 'exploit_likelihood': +1},  # Improper Crypto Signature
@@ -695,10 +695,10 @@ def adjust_for_ota_context(cwe_id, necessary_material, operation_impact, detecti
         exploit_likelihood = min(10, exploit_likelihood + adjustments.get('exploit_likelihood', 0))
         print(f"   🚗 OTA context boost applied for CWE-{cwe_id}")
     
-    return necessary_material, operation_impact, detection_difficulty, exploit_likelihood
+    return necessary_material, operation_impact, detection_difficulty, exploit_likelihood"""
 
 
-def parse_cwe_info(cwe_id, ota_context=True):
+def parse_cwe_info(cwe_id):
     """
     MAIN FUNCTION - Replace the old parse_cwe_info() with this
     
@@ -733,11 +733,6 @@ def parse_cwe_info(cwe_id, ota_context=True):
     detection_difficulty = extract_detection_difficulty(row)
     exploit_likelihood = extract_exploit_likelihood(row)
     
-    # Apply OTA context adjustments
-    if ota_context:
-        necessary_material, operation_impact, detection_difficulty, exploit_likelihood = \
-            adjust_for_ota_context(cwe_id, necessary_material, operation_impact, 
-                                  detection_difficulty, exploit_likelihood)
     
     # Log results
     print(f"   ✅ Necessary Material: {necessary_material}/10")

@@ -1,4 +1,3 @@
-
 import numpy as np
 
 # représente les différentes valeurs pour chaque catégorie dread
@@ -50,50 +49,58 @@ ZoneLevel = {
 }
 
 
-
-
 class Dread:
-
-    def __init__(self,damage,reproductability, exploitability, affected_user,discoverability):
-        self.impact = np.array([10 - damage,10 - reproductability,10 -exploitability,10 -affected_user,discoverability])
+    def __init__(self, damage, reproductability, exploitability, affected_user, discoverability):
+        self.impact = np.array([
+            damage,
+            reproductability,
+            exploitability,
+            affected_user,
+            discoverability
+        ])
 
     def get_impact(self):
-        """
-        méthode qui récupère la liste des niveaux dread pour chaque catégories
-        :return: une liste des différentes niveaux dread pour chaque catégorie
-        """
-        categories = ['Damage', 'Reproducibility','Exploitability', 'Affected_Users', 'Discoverability']
+        """Mapping vers niveaux discrets"""
+        categories = ['Damage', 'Reproducibility', 'Exploitability', 
+                      'Affected_Users', 'Discoverability']
         result = {}
-        for i,category in enumerate(categories):
+        
+        for i, category in enumerate(categories):
             input_impact = np.round(self.impact[i])
             level_dread = DreadImpact[category]
+            
             res_level = None
             res_value = 0
-            for level,value in level_dread.items():
-                if input_impact < value:
-                    if res_level is None:
-                        res_level = level
-                    break
-                else:
+            
+            # Trouve le niveau le plus proche (sans dépasser)
+            for level, value in level_dread.items():
+                if input_impact >= value:  # ✅ Plus grand ou égal
                     res_level = level
                     res_value = value
-            result[category] = { 'inputValue': self.impact[i], 'SetValue': res_value, 'level': res_level}
+                else:
+                    break
+                    
+            result[category] = {
+                'inputValue': self.impact[i],
+                'SetValue': res_value,
+                'level': res_level
+            }
         return result
 
     def get_risque(self):
         """
-        méthode qui récupère le risque : en  appliquant le mapping des valeurs, de la manière suivante:
-        1. faire la somme des valeurs de chaque catégories
-        2. regarder dans quel interval on se situe
-        :return: le risque dread
+        Calcul du risque DREAD normalisé (1-4 pour compatibilité TARA/HARA)
         """
         get_all = self.get_impact()
-        impact_total = np.sum(np.array([element['SetValue'] for element in get_all.values()]))
+        impact_total = np.sum([element['SetValue'] for element in get_all.values()])
+        
+        # ✅ Mapping cohérent (score max = 50)
         if impact_total <= 10:
-            return 1 # Low
+            dread =  1  # Low (0-20% du max)
         elif impact_total <= 24:
-            return 2 # Medium
+            dread =  2  # Medium (21-48% du max)
         elif impact_total <= 39:
-            return 3 # High
+            dread =  3  # High (49-78% du max)
         else:
-            return 4 # critical
+            dread = 4  # Critical (79-100% du max)
+        return 1 + (dread - 1) * (4/3) 
