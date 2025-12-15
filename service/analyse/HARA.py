@@ -1,114 +1,41 @@
-
-# Inspiré de  Hazard Analysis and Risk Assessment (HARA) | Engineering Expertise EE#4
-# de UL Solutions - YTB
-
-from enum import Enum
-# import fasttext
-import numpy as np
-from numpy.linalg import norm
-
-
-
-model = 1 # fasttext.load_model('cc.en.300.bin')
-
-class Exposure(Enum):
-    E0 = 0
-    E1 = 1
-    E2 = 2
-    E3 = 3
-    E4 = 4
-
-class Controllability(Enum):
-    C0 = 0
-    C1 = 1
-    C2 = 2
-    C3 = 3
-
-class Severity(Enum):
-    S0 = 0
-    S1 = 1
-    S2 = 2
-    S3 = 3
-
-class ASIL(Enum):
-    QM = 0
-    ASIL_A = 1
-    ASIL_B = 2
-    ASIL_C = 3
-    ASIL_D = 4
-
-
-"""
-ASIL_TABLE = {
-    (Severity.S1, Controllability.C1, Exposure.E1): ASIL.QM,
-    (Severity.S1, Controllability.C1, Exposure.E2): ASIL.QM,
-    (Severity.S1, Controllability.C1, Exposure.E3): ASIL.QM,
-    (Severity.S1, Controllability.C1, Exposure.E4): ASIL.QM,
-    (Severity.S1, Controllability.C2, Exposure.E1): ASIL.QM,
-    (Severity.S1, Controllability.C2, Exposure.E2): ASIL.QM,
-    (Severity.S1, Controllability.C2, Exposure.E3):  ASIL.QM,
-    (Severity.S1, Controllability.C2, Exposure.E4): ASIL.ASIL_A,
-    (Severity.S1, Controllability.C3, Exposure.E1): ASIL.QM,
-    (Severity.S1, Controllability.C3, Exposure.E2): ASIL.QM,
-    (Severity.S1, Controllability.C3, Exposure.E3): ASIL.ASIL_A,
-    (Severity.S1, Controllability.C3, Exposure.E4): ASIL.ASIL_B,
-
-   (Severity.S2, Controllability.C1, Exposure.E1): ASIL.QM,
-    (Severity.S2, Controllability.C1, Exposure.E2): ASIL.QM,
-    (Severity.S2, Controllability.C1, Exposure.E3): ASIL.QM,
-    (Severity.S2, Controllability.C1, Exposure.E4): ASIL.ASIL_A,
-    (Severity.S2, Controllability.C2, Exposure.E1): ASIL.QM,
-    (Severity.S2, Controllability.C2, Exposure.E2): ASIL.QM,
-    (Severity.S2, Controllability.C2, Exposure.E3): ASIL.ASIL_A,
-    (Severity.S2, Controllability.C2, Exposure.E4): ASIL.ASIL_B,
-    (Severity.S2, Controllability.C3, Exposure.E1): ASIL.QM,
-    (Severity.S2, Controllability.C3, Exposure.E2): ASIL.ASIL_A,
-    (Severity.S2, Controllability.C3, Exposure.E3): ASIL.ASIL_B,
-    (Severity.S2, Controllability.C3, Exposure.E4): ASIL.ASIL_C,
-
-    (Severity.S3, Controllability.C1, Exposure.E1): ASIL.QM,
-    (Severity.S3, Controllability.C1, Exposure.E2): ASIL.QM,
-    (Severity.S3, Controllability.C1, Exposure.E3): ASIL.ASIL_A,
-    (Severity.S3, Controllability.C1, Exposure.E4): ASIL.ASIL_B,
-    (Severity.S3, Controllability.C2, Exposure.E1): ASIL.QM,
-    (Severity.S3, Controllability.C2, Exposure.E2): ASIL.ASIL_A,
-    (Severity.S3, Controllability.C2, Exposure.E3): ASIL.ASIL_B,
-    (Severity.S3, Controllability.C2, Exposure.E4): ASIL.ASIL_C,
-    (Severity.S3, Controllability.C3, Exposure.E1): ASIL.ASIL_A,
-    (Severity.S3, Controllability.C3, Exposure.E2): ASIL.ASIL_B,
-    (Severity.S3, Controllability.C3, Exposure.E3): ASIL.ASIL_C,
-    (Severity.S3, Controllability.C3, Exposure.E4): ASIL.ASIL_D,
-}
-
-"""
-
-# Hara creator class HaraBuilder:
 class Hara:
-    def __init__(self,exposure,controllability,severity):
+    def __init__(self, exposure, controllability, severity):
         self.exposure = exposure
         self.severity = severity
         self.controllability = controllability
-
+        
+        # ISO 26262 ASIL Determination Table
+        self.ASIL_TABLE = {
+            # S1 combinations
+            (1, 1, 1): 0, (1, 1, 2): 0, (1, 1, 3): 0, (1, 1, 4): 0,
+            (1, 2, 1): 0, (1, 2, 2): 0, (1, 2, 3): 0, (1, 2, 4): 1,
+            (1, 3, 1): 0, (1, 3, 2): 0, (1, 3, 3): 1, (1, 3, 4): 2,
+            
+            # S2 combinations
+            (2, 1, 1): 0, (2, 1, 2): 0, (2, 1, 3): 0, (2, 1, 4): 1,
+            (2, 2, 1): 0, (2, 2, 2): 0, (2, 2, 3): 1, (2, 2, 4): 2,
+            (2, 3, 1): 0, (2, 3, 2): 1, (2, 3, 3): 2, (2, 3, 4): 3,
+            
+            # S3 combinations
+            (3, 1, 1): 0, (3, 1, 2): 0, (3, 1, 3): 1, (3, 1, 4): 2,
+            (3, 2, 1): 0, (3, 2, 2): 1, (3, 2, 3): 2, (3, 2, 4): 3,
+            (3, 3, 1): 1, (3, 3, 2): 2, (3, 3, 3): 3, (3, 3, 4): 4,  
+        }
 
     def getAsil(self):
         """
-
-        :return:
+        Get ASIL using ISO 26262 lookup table
         """
         if self.exposure is None or self.severity is None or self.controllability is None:
             return 0
-        somme = self.exposure + self.severity + self.controllability
-        if somme < 7:
-            return 0 #QM
-        elif somme == 7:
-            return 1 # ASIL_A
-        elif somme == 8:
-            return 2 # ASIL_B
-        elif somme == 9:
-            return 3 # ASIL_C
-        else:
-            return 4 #ASIL_D
-
+        
+        # Lookup in table
+        key = (self.severity, self.controllability, self.exposure)
+        asil = self.ASIL_TABLE.get(key, 0)
+        
+        #print(f"   HARA Debug: S{self.severity} + C{self.controllability} + E{self.exposure} = ASIL {asil}")
+        
+        return asil
 
     def getRisque(self):
         return 1 + self.getAsil()

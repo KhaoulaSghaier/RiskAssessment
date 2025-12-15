@@ -15,9 +15,9 @@ from service.analyse.DREAD import *
         'necessary_material': 0-10      DREAD EXPLOITABILITY | TARA EQUIPEMENT
         'level_damage':  0-10           DREAD DAMAGE       | TARA (moyenne level_damage and operationnal_impact) financial
         'affected_user': 0-10           DREAD AFFECTED_USER
-        'operationnel_impact': 0-10     TARA : (operationnel_impact * 15) OPERATIONNEL | HARA  si TARA [150 - 50] = 3 / [50-10] = 2 / [10,0] = 1 CONTROLABILITY
+        'operational_impact': 0-10     TARA : (operational_impact * 15) OPERATIONNEL | HARA  si TARA [150 - 50] = 3 / [50-10] = 2 / [10,0] = 1 CONTROLABILITY
         'leak_information': 0- 10       TARA: (leak_information * 15) PRIVACY| HARA (leak_information * 4 / 10) EXPOSURE
-        'severity': 0-11                HARA SEVERITY | TARA (severity * 100) SAFETY |
+        'severity': 0-10               HARA SEVERITY | TARA (severity * 100) SAFETY |
 """
 
 test_case  = {
@@ -29,15 +29,15 @@ test_case  = {
         'necessary_material': 10,
         'level_damage':  0,
         'affected_user':  10,
-        'operationnel_impact': 10,
+        'operational_impact': 10,
     'leak_information': 10,
-    'severity': 10 ,
+    'severity': 10
 }
 
 
 """
  return {
-        'severity': 11 if get_severity > 11 else get_severity ,
+        'severity': 10 ifget_severity > 11 else get_severity ,
         'expertise': (getCapec.getLikehood() + necessary_material)/2,
         'exploitability': max(epss * 10,1),
         'attack_discovery': getCapec.getLikehood(),
@@ -45,7 +45,7 @@ test_case  = {
         'necessary_material': material_map.get(template_base.get('type_cible')),
         'level_damage': 10 if (round((get_severity + operation_impact) /2)) > 10 else (round((get_severity + operation_impact) /2)),
         'affected_user': map_affected_user.get(template_base.get('affected_user')),
-        'operationnel_impact': operation_impact,
+        'operationl_impact': operation_impact,
         'leak_information': getCapec.isConfenditalThreat() ,
         'attack_vector': elt2,
         'attack_complexity': attack_complexity,
@@ -121,8 +121,8 @@ class analyse_automatique:
         }
 
         safety = self.scenario["severity"] * 100
-        financial = round(((self.scenario["level_damage"] + self.scenario["operationnel_impact"]) / 2 )) * 15
-        operational = self.scenario["operationnel_impact"] * 15
+        financial = round(((self.scenario["level_damage"] + self.scenario["operational_impact"]) / 2 )) * 15
+        operational = self.scenario["operational_impact"] * 15
         privacy = self.scenario["leak_information"] * 15
         attack_vector = self.scenario["attack_vector"]
         attack_complexity = self.scenario['attack_complexity']
@@ -133,13 +133,13 @@ class analyse_automatique:
         self.tara = TARA(safety,financial,operational,privacy,attack_vector,attack_complexity,privileges_required,user_interaction)
 
     def compileHara(self):
-        exposure =round((self.scenario["leak_information"] * 4) / 10)
+        exposure =round((self.scenario["leak_information"] * 4) / 10) #change by attack_vector
         severy = 0
-        if self.scenario["severity"] == 11:
+        if self.scenario["severity"] == 10 :
             severy = 4
         else:
             severy = round((self.scenario["severity"] * 4) / 10)
-        compare = self.scenario["operationnel_impact"] * 15
+        compare = self.scenario["operational_impact"] * 15
         controllability = 0
         if 50 <= compare <= 150:
             controllability = 3
