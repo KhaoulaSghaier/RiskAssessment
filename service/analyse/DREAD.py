@@ -50,57 +50,70 @@ ZoneLevel = {
 
 
 class Dread:
-    def __init__(self, damage, reproductability, exploitability, affected_user, discoverability):
-        self.impact = np.array([
-            damage,
-            reproductability,
-            exploitability,
-            affected_user,
-            discoverability
-        ])
-
-    def get_impact(self):
-        """Mapping vers niveaux discrets"""
-        categories = ['Damage', 'Reproducibility', 'Exploitability', 
-                      'Affected_Users', 'Discoverability']
-        result = {}
+    """
+    Simplified DREAD with 2 parameters for automotive OTA risk assessment
+    
+    Parameters:
+    - damage: Severity of consequences {0, 5, 8, 9, 10}
+    - affected_user: Fleet-scale impact {0, 2.5, 6, 8, 10}
+    
+    Risk normalized to [1.0, 5.0] for consistency with TARA and HARA
+    """
+    
+    def __init__(self, damage, affected_user):
+        """
+        Initialize DREAD with 2 parameters
         
-        for i, category in enumerate(categories):
-            input_impact = np.round(self.impact[i])
-            level_dread = DreadImpact[category]
-            
-            res_level = None
-            res_value = 0
-            
-            # Trouve le niveau le plus proche (sans dépasser)
-            for level, value in level_dread.items():
-                if input_impact >= value:  # ✅ Plus grand ou égal
-                    res_level = level
-                    res_value = value
-                else:
-                    break
-                    
-            result[category] = {
-                'inputValue': self.impact[i],
-                'SetValue': res_value,
-                'level': res_level
-            }
-        return result
-
+        Args:
+            damage (float): {0, 5, 8, 9, 10}
+            affected_user (float): {0, 2.5, 6, 8, 10}
+        """
+        self.damage = damage
+        self.affected_user = affected_user
+        
+        # Store as array for compatibility
+        self.impact = np.array([damage, affected_user])
+    
     def get_risque(self):
         """
-        Calcul du risque DREAD normalisé (1-4 pour compatibilité TARA/HARA)
-        """
-        get_all = self.get_impact()
-        impact_total = np.sum([element['SetValue'] for element in get_all.values()])
+        Calculate DREAD risk score (1-5 scale)
         
-        # ✅ Mapping cohérent (score max = 50)
-        if impact_total <= 10:
-            dread =  1  # Low (0-20% du max)
-        elif impact_total <= 24:
-            dread =  2  # Medium (21-48% du max)
-        elif impact_total <= 39:
-            dread =  3  # High (49-78% du max)
-        else:
-            dread = 4  # Critical (79-100% du max)
-        return 1 + (dread - 1) * (4/3) 
+        Formula:
+            avg = (damage + affected_user) / 2
+            risk = 1 + (avg / 10) × 4
+        
+        Simplified:
+            risk = 1 + (damage + affected_user) / 5
+        
+        Returns:
+            float: Risk score in [1.0, 5.0]
+        """
+        # Simple average (like DREAD original)
+        dread_avg = (self.damage + self.affected_user) / 2.0
+        
+        # Normalize [0, 10] → [1, 5]
+        dread_risk = 1.0 + (dread_avg / 10.0) * 4.0
+        
+        print(f"   🔍 DREAD Calculation:")
+        print(f"      Damage: {self.damage}")
+        print(f"      Affected Users: {self.affected_user}")
+        print(f"      Average: {dread_avg:.2f}")
+        print(f"      Risk (normalized [1,5]): {dread_risk:.2f}")
+        
+        return round(dread_risk, 2)
+    
+    def get_impact(self):
+        """
+        Return impact details (for compatibility with old code)
+        
+        Returns:
+            dict: Impact breakdown
+        """
+        return {
+            'damage': {'SetValue': self.damage},
+            'affected_user': {'SetValue': self.affected_user}
+        }
+    
+    def __str__(self):
+        """String representation for debugging"""
+        return f"DREAD(damage={self.damage}, affected_user={self.affected_user}, risk={self.get_risque()})"

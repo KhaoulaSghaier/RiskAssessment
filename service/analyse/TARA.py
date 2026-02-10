@@ -5,28 +5,28 @@ import numpy as np
 
 critereImpact = {
     'Safety': {
-        'Negligible': [0,100], # No injuries
-        'Moderate': [10,100], # Light injury
-        'Serious': [100,1000], # Severe injury
-        'Severe': [1000,-1], # threat against life
+        'No impact': 0, # No injuries
+        'Low': 10, # Light injury
+        'Medium': 100, # Severe injury
+        'High': 1000, # threat against life
     },
     'Financial' : {
-        'Neglible': [0,10], # Negligible losses
-        'Moderate': [10,100], # Moderate Losses
-        'Serrious': [100,150], # Substantial losses
-        'Severe': [150,-1] # Personnal Bankruptcy
+        'No impact': 0, # Negligible losses
+        'Low': 10, # Moderate Losses
+        'Medium': 100, # Substantial losses
+        'High': 1000 # Personnal Bankruptcy
     },
     'Operationnal': {
-        'Neglible': [0,10],  # Neglibible Disturbance
-        'Moderate':[10,100],  # Vehicle mostly Operationnal
-        'Serrious': [100,150],  # Serious limitation in Vehicule Operation
-        'Severe': [150,-1]  # Vehicle not Operationnal
+        'No impact': 0,  # Neglibible Disturbance
+        'Low':1,  # Vehicle mostly Operationnal
+        'Medium': 10,  # Serious limitation in Vehicule Operation
+        'High': 100  # Vehicle not Operationnal
     },
     'Privacy': {
-        'Neglible': [0,10], # Few Inconveniences
-        'Moderate': [10,100], # Siginificant Inconveniences
-        'Serious': [100,1000], # Serious Impact on PII
-        'Severe': [150,-1] # Irreversible Impact on PII
+        'No impact': 0, # Few Inconveniences
+        'Low': 1, # Siginificant Inconveniences
+        'Medium': 10, # Serious Impact on PII
+        'High': 100 # Irreversible Impact on PII
     }
 }
 
@@ -75,100 +75,176 @@ ImpactRating = {
 }
 
 
+# Dans TARA.py, remplacer les fonctions getImpactInfo() et calcul_impact()
+
 class TARA:
-
-    def __init__(self,safety,financial,operational,privacy,attack_vector,attack_complexity,privilege_required,user_interaction):
+    def __init__(self, safety, financial, operational, privacy,
+                 attack_vector, attack_complexity, privileges_required, user_interaction):
         """
-        constructeur qui prend tout les paramètre tara pour faire l'analyse
-        :param safety: score safety
-        :param financial: score financial
-        :param operational: score operational du template
-        :param privacy: score privay du template
-        :param attack_vector:  score attack vector du template
-        :param attack_complexity:  score complexity du template
-        :param privilege_required:  score privileges required du template
-        :param user_interaction:  socre user interaction du template
+        Initialize TARA with discrete ISO 21434 values
         """
-        self.impact = np.array([safety,financial,operational,privacy])
-        self.feasability = np.array([cvss_mapping["attack_vector"][attack_vector.upper()],
-                                     cvss_mapping["attack_complexity"][attack_complexity.upper()],
-                                     cvss_mapping["privileges_required"][privilege_required.upper()],
-                                     cvss_mapping["user_interaction"][user_interaction.upper()]])
-        if attack_vector.upper() not in cvss_mapping["attack_vector"]:
-            raise ValueError(f"Invalid attack vector: {attack_vector.upper()}. Valid options: {list(cvss_mapping['attack_vector'].keys())}")
-
+        # Store discrete impact values
+        self.safety = safety
+        self.financial = financial
+        self.operational = operational
+        self.privacy = privacy
+        
+        # CVSS metrics
+        self.attack_vector_str = attack_vector
+        self.attack_complexity_str = attack_complexity
+        self.privileges_required_str = privileges_required
+        self.user_interaction_str = user_interaction
+        
+        # CVSS weight mapping
+        self.cvss_mapping = {
+            "attack_vector": {
+                "NETWORK": 0.85, "ADJACENT": 0.62, "LOCAL": 0.55, "PHYSICAL": 0.20,
+                "N": 0.85, "A": 0.62, "L": 0.55, "P": 0.20
+            },
+            "attack_complexity": {
+                "LOW": 0.77, "HIGH": 0.44,
+                "L": 0.77, "H": 0.44
+            },
+            "privileges_required": {
+                "NONE": 0.85, "LOW": 0.62, "HIGH": 0.27,
+                "N": 0.85, "L": 0.62, "H": 0.27
+            },
+            "user_interaction": {
+                "NONE": 0.85, "REQUIRED": 0.62,
+                "N": 0.85, "R": 0.62
+            }
+        }
+        
+        # Calculate feasibility weights
+        self.av_weight = self.cvss_mapping["attack_vector"][attack_vector.upper()]
+        self.ac_weight = self.cvss_mapping["attack_complexity"][attack_complexity.upper()]
+        self.pr_weight = self.cvss_mapping["privileges_required"][privileges_required.upper()]
+        self.ui_weight = self.cvss_mapping["user_interaction"][user_interaction.upper()]
+        
+        self.feasibility = np.array([self.av_weight, self.ac_weight, self.pr_weight, self.ui_weight])
+        
+        # Print detailed breakdown
+        self._print_tara_details()
+    
+    def _print_tara_details(self):
+        """Print comprehensive TARA parameter breakdown"""
+        print("\n" + "="*70)
+        print("   TARA PARAMETER BREAKDOWN")
+        print("="*70)
+        
+        # Impact scores
+        print("\n   📊 IMPACT SCORES (Discrete ISO 21434 Values):")
+        print(f"      Safety:       {self.safety:>4}  {'🔴' if self.safety >= 1000 else '🟡' if self.safety >= 100 else '🟢'}")
+        print(f"      Financial:    {self.financial:>4}  {'🔴' if self.financial >= 1000 else '🟡' if self.financial >= 100 else '🟢'}")
+        print(f"      Operational:  {self.operational:>4}  {'🔴' if self.operational >= 100 else '🟡' if self.operational >= 10 else '🟢'}")
+        print(f"      Privacy:      {self.privacy:>4}  {'🔴' if self.privacy >= 100 else '🟡' if self.privacy >= 10 else '🟢'}")
+        
+        # Calculate impact sum and rating
+        impact_sum = self.safety + self.financial + self.operational + self.privacy
+        impact_rating = self.calcul_impact()
+        impact_level = self.getImpactInfo()
+        
+        print(f"\n      Impact Sum:   {impact_sum:>4}  (max: 2200)")
+        print(f"      Impact Level: {impact_level}")
+        print(f"      Impact Rating: {impact_rating} / 2.0")
+        
+        # Feasibility parameters
+        print("\n   🎯 FEASIBILITY PARAMETERS (CVSS v3.1):")
+        print(f"      Attack Vector (AV):        {self.attack_vector_str:<10} → weight: {self.av_weight}")
+        print(f"      Attack Complexity (AC):    {self.attack_complexity_str:<10} → weight: {self.ac_weight}")
+        print(f"      Privileges Required (PR):  {self.privileges_required_str:<10} → weight: {self.pr_weight}")
+        print(f"      User Interaction (UI):     {self.user_interaction_str:<10} → weight: {self.ui_weight}")
+        
+        # Calculate exploitability and feasibility
+        exploitability = self.calcul_exploitability()
+        feasibility_rating = self.calcul_feasibility()
+        
+        print(f"\n      Exploitability Score: {exploitability:.2f}  (formula: 8.22 × {self.av_weight} × {self.ac_weight} × {self.pr_weight} × {self.ui_weight})")
+        print(f"      Feasibility Rating:   {feasibility_rating} / 2.0")
+        
+        # Feasibility level
+        if feasibility_rating == 0:
+            feasibility_level = "Very Low"
+        elif feasibility_rating == 1:
+            feasibility_level = "Low"
+        elif feasibility_rating == 1.5:
+            feasibility_level = "Medium"
+        else:
+            feasibility_level = "High"
+        
+        print(f"      Feasibility Level:    {feasibility_level}")
+        
+        # Final risk
+        tara_risk = self.Risque()
+        print(f"\n   🎯 TARA FINAL RISK:")
+        print(f"      Formula: 1 + (Impact × Feasibility)")
+        print(f"      Risk = 1 + ({impact_rating} × {feasibility_rating})")
+        print(f"      TARA Risk Score: {tara_risk} / 5.0")
+        
+        # Risk classification
+        if tara_risk >= 4.0:
+            risk_class = "🔴 CRITICAL"
+        elif tara_risk >= 3.0:
+            risk_class = "🟠 HIGH"
+        elif tara_risk >= 2.0:
+            risk_class = "🟡 MEDIUM"
+        else:
+            risk_class = "🟢 LOW"
+        
+        print(f"      Classification: {risk_class}")
+        print("="*70 + "\n")
+    
+    def calcul_exploitability(self):
+        """Calculate CVSS exploitability score"""
+        return 8.22 * np.prod(self.feasibility)
+    
     def getImpactInfo(self):
-        """
-        renvoie un dicitionnaire indiquant l'impact de la valeur et ou elle se situe selon le score
-        par exemple pour financial,si la valeur vaut 60 alors la valeur de dictionnaire à cette forme:
-        {'inputValue': 60, 'SetValue': [10,100], 'level': 'Moderate'}
-        :return: liste de dictionnarie représentant chaque résultat de niveau d'impact
-        """
-        categories = ['Safety', 'Financial', 'Operationnal', 'Privacy']
-        result = {}
-        for i, category in enumerate(categories):
-            input_impact = np.round(self.impact[i])
-            level_tara = critereImpact[category]
-            res_level = None
-            res_value = 0
-            for level, value in level_tara.items():
-                if value[1] == -1:
-                    res_level = level
-                    res_value = value
-
-                else:
-                    res_level = level
-                    res_value = value
-                    if value[0] <= input_impact < value[1]:
-                        #if (input_impact - value[0]) < (value[1] - input_impact):
-                        break
-
-            result[category] = {'inputValue': self.impact[i], 'SetValue': res_value, 'level': res_level}
-        return result
-
-
-    def calcul_impact(self):
-        impact_info = self.getImpactInfo()
-        value =   np.sum(np.array([m['SetValue'] for m in impact_info.values()]))
-        if value >= 550:
+        """Determine impact level from discrete impact sum"""
+        impact_sum = self.safety + self.financial + self.operational + self.privacy
+        
+        if impact_sum >= 1000:
             return 'Severe'
-        elif value >= 220:
+        elif impact_sum >= 100:
             return 'Serious'
-        elif value >= 20:
+        elif impact_sum >= 10:
             return 'Moderate'
         else:
-            return 'Neglible'
-
-
-
-    def calculfeasibility(self):
-        """
-        calcul de la faisabilité selon l'approche ISO 21434 définit par:
-        8.22 * exploitability *  attack_vector * attack_complexity *  privilege_required * user_interaction
-        :return: le niveau de faisabilité
-
-        """
-        exploitability = 8.22
-        for elt in self.feasability:
-            exploitability *= elt
-        if 2.96 <= exploitability <= 3.89:
-            return "High"
-        elif 2.0 <= exploitability <= 2.95:
-            return "Medium"
-        elif 1.06 <= exploitability <= 1.99:
-            return 'Low'
+            return 'Negligible'
+    
+    def calcul_impact(self):
+        """Calculate impact rating (0-2) for TARA formula"""
+        impact_info = self.getImpactInfo()
+        
+        impact_rating_map = {
+            'Negligible': 0,
+            'Moderate': 1,
+            'Serious': 1.5,
+            'Severe': 2
+        }
+        
+        return impact_rating_map[impact_info]
+    
+    def calcul_feasibility(self):
+        """Calculate attack feasibility rating (0-2)"""
+        exploitability = self.calcul_exploitability()
+        
+        if exploitability >= 2.96:
+            return 2      # High
+        elif exploitability >= 2.0:
+            return 1.5    # Medium
+        elif exploitability >= 1.06:
+            return 1      # Low
         else:
-            return 'Very low'
-
+            return 0      # Very Low
+    
     def Risque(self):
-        """
-        récupération de l'impact et de la faisabilité pour appliquer la formule suivante:
-        1 + faisabilité * impact
-        :return: le risque final définit sur l'échelle [1,5]
-        """
-        resultat_impact =  ImpactRating[self.calcul_impact()]
-        resultat_feasability = FeasabilityRating[self.calculfeasibility()]
-        return 1 + resultat_impact * resultat_feasability
+        """Calculate final TARA risk score"""
+        impact_rating = self.calcul_impact()
+        feasibility_rating = self.calcul_feasibility()
+        
+        tara_risk = 1 + (impact_rating * feasibility_rating)
+        
+        return round(tara_risk, 2)
 
 
 

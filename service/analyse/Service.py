@@ -1,379 +1,511 @@
-from service.analyse.analyse_automatique import analyse_automatique, RiskAggregator
-from service.analyse import utils
-from service.analyse.get_match import get_top_match, calculate_overall_confidence, get_confidence_level
-from service.analyse.capec_attack import *
+"""
+Service.py - Main service with TWO-TIER risk extraction logic
+"""
+
 import argparse
 import sys
+import os
+import pandas as pd
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from service.analyse import utils
+from service.analyse.get_match import get_top_match
+from service.analyse.get_match_atd import try_atd_extraction, map_hara_to_iso26262 
+from service.analyse.analyse_automatique import analyse_automatique, RISK_LEVELS
+from service.analyse.ATD_loader import load_and_prepare_atd
 
 
-material_map = {
-    "CRITICAL": 2,
-    "HIGH": 4,
-    "MEDIUM": 6,
-    "LOW": 8,
-    "VERY_LOW": 10
-}
+# FONCTION : Extract from CVE/CWE/CAPEC
 
-
-def SearchSimilar(query):
+def extract_risk_from_matches(matches, vulnerability_location='vehicle'):
     """
-    :param query: description à comparé
-    :return: Dictionary with top-3 matches per database with confidence scores
+    Extract risk parameters from CVE/CWE/CAPEC matches
     """
-    return get_top_match(query, utils.get_all_mitre_description(), utils.get_all_cwe_description(),
-                          utils.get_all_capec_description(), utils.get_cve_description(), utils.get_mitre_techniques(), 
-                          utils.get_all_capec(), utils.get_all_cwe(), utils.get_cve(), top_value=3)
-
-
-def get_analyse(template_base):
-    print("\n" + "="*60)
-    print("STARTING RISK ANALYSIS")
-    print("="*60)
+    cve_match = matches['cve'][0]
+    cwe_match = matches['cwe'][0]
+    capec_match = matches['capec'][0]
     
-    # Initialize review tracking
-    flag_for_review = False
-    review_reasons = []
-    default_values_used = []
+    cve_id = cve_match['id']
+    cwe_id = cwe_match['id'].replace('CWE-', '') 
+    capec_id = capec_match['id']
+    capec_name = capec_match['name']
     
-    def add_default_flag(field_name, default_value, reason):
-        """Track when default values are assigned due to extraction failure"""
-        nonlocal flag_for_review, review_reasons, default_values_used
-        flag_for_review = True
-        message = f"⚠️  Default value assigned: '{field_name}' = {default_value} - {reason}"
-        review_reasons.append(message)
-        default_values_used.append({
-            'field': field_name,
-            'value': default_value,
-            'reason': reason
-        })
-        print(message)
+    print(f"\n   📊 Extracting parameters from:")
+    print(f"      CVE: {cve_id} (confidence: {cve_match['confidence']:.3f})")
+    print(f"      CWE: {cwe_id} (confidence: {cwe_match['confidence']:.3f})")
+    print(f"      CAPEC: {capec_id} (confidence: {capec_match['confidence']:.3f})")
     
-    # Search similar threats
-    query = template_base['description']
-    print(f"\n🔍 Query: {query[:100]}...")
-    
-    print("\n📡 Searching similar threats in databases...")
-    getSimilar = SearchSimilar(query)
-    
-    # Calculate overall confidence
-    overall_confidence = calculate_overall_confidence(getSimilar)
-    confidence_level, confidence_desc = get_confidence_level(overall_confidence)
-    
-    # Print top 3 matches
-    print("\n🎯 Top 3 Matches Found:")
-    print("\n📊 MITRE ATT&CK:")
-    for match in getSimilar['mitre']:
-        print(f"   #{match['rank']} {match['id']} - {match['name'][:60]}")
-        print(f"       Confidence: {match['confidence']:.3f} ({match['confidence']*100:.1f}%)")
-    
-    print("\n🎭 CAPEC:")
-    for match in getSimilar['capec']:
-        print(f"   #{match['rank']} {match['id']} - {match['name'][:60]}")
-        print(f"       Confidence: {match['confidence']:.3f} ({match['confidence']*100:.1f}%)")
-    
-    print("\n🛡️ CWE:")
-    for match in getSimilar['cwe']:
-        print(f"   #{match['rank']} {match['id']} - {match['name'][:60]}")
-        print(f"       Confidence: {match['confidence']:.3f} ({match['confidence']*100:.1f}%)")
-    
-    print("\n🔐 CVE:")
-    for match in getSimilar['cve']:
-        print(f"   #{match['rank']} {match['id']}")
-        print(f"       Confidence: {match['confidence']:.3f} ({match['confidence']*100:.1f}%)")
-    
-    print(f"\n📈 Overall Confidence: {overall_confidence:.3f} ({confidence_level})")
-    print(f"   {confidence_desc}")
-    
-    # Use top matches (rank 1)
-    top_mitre = getSimilar['mitre'][0]
-    top_capec = getSimilar['capec'][0]
-    top_cwe = getSimilar['cwe'][0]
-    top_cve = getSimilar['cve'][0]
-
-    # EPSS scores
-    print("\n📈 Fetching EPSS scores...")
-    try:
-        epss, percentile = utils.get_epss_score(top_cve['id'])
-        print(f"   ✅ EPSS: {epss:.4f}, Percentile: {percentile:.2f}")
-    except Exception as e:
-        print(f"   ⚠️  EPSS score not available: {e}")
-        epss, percentile = 0.01, 0.5
-        add_default_flag('epss_score', epss, 'EPSS data unavailable from API')
-        add_default_flag('epss_percentile', percentile, 'EPSS data unavailable from API')
-
-    # CAPEC parsing
-    print("\n🎭 Parsing CAPEC data...")
-    try:
-        likehood, severity, consequence, prerequisite = utils.get_capec_from_id(
-            top_capec['id'], top_capec['name']
-        )
-        getCapec = CapecAnalyze(severity, likehood, consequence)
-        print(f"   ✅ CAPEC parsed successfully")
-    except Exception as e:
-        print(f"   ⚠️  CAPEC parsing error: {e}")
-        getCapec = CapecAnalyze('Medium', 'Medium', {})
-        add_default_flag('capec_severity', 'Medium', f'CAPEC parsing failed: {str(e)}')
-        add_default_flag('capec_likelihood', 'Medium', f'CAPEC parsing failed: {str(e)}')
-
-    # MITRE parsing
-    print("\n⚔️ Parsing MITRE ATT&CK data...")
-    mitre_failed = False
-    try:
-        mitre_attack_vector, mitre_required_privileges, mitre_damage_potential, mitre_detectability = \
-            utils.parse_mitre_description(top_mitre['description'])
-        print(f"   ✅ MITRE parsed successfully")
-    except Exception as e:
-        print(f"   ⚠️  MITRE parsing error: {e}")
-        mitre_attack_vector = 'NETWORK'
-        mitre_required_privileges = 'Low'
-        mitre_failed = True
-        add_default_flag('mitre_attack_vector', mitre_attack_vector, f'MITRE parsing failed: {str(e)}')
-        add_default_flag('mitre_required_privileges', mitre_required_privileges, f'MITRE parsing failed: {str(e)}')
-
-    # CVE CVSS extraction
-    print("\n🔐 Extracting CVE CVSS fields...")
-    cve_failed = False
+    # ===== Extract from CVE =====
     try:
         attack_vector, attack_complexity, privilege_required, user_interaction = \
-            utils.extract_cve_cvss_fields(top_cve['id'])
-        print(f"   ✅ CVE parsed successfully")
+            utils.extract_cve_cvss_fields(cve_id)
     except Exception as e:
-        print(f"   ⚠️  CVE parsing error: {e}")
-        attack_vector = 'None'
-        attack_complexity = 'Low'
-        privilege_required = 'None'
-        user_interaction = 'None'
-        cve_failed = True
-
-    # CWE parsing
-    print("\n🛡️ Parsing CWE data...")
+        print(f"      ⚠️  CVE extraction failed: {e}")
+        attack_vector = 'NETWORK'
+        attack_complexity = 'LOW'
+        privilege_required = 'NONE'
+        user_interaction = 'NONE'
+    
+    # ===== Extract from CWE =====
     try:
-        necessary_material, operation_impact = utils.parse_cwe_info(top_cwe['id'])
-        print(f"   ✅ CWE parsed successfully")
+        necessary_material, operation_impact = utils.parse_cwe_info(cwe_id)
     except Exception as e:
-        print(f"   ⚠️  CWE parsing error: {e}")
+        print(f"      ⚠️  CWE extraction failed: {e}")
         necessary_material = 5
         operation_impact = 5
-        add_default_flag('cwe_necessary_material', necessary_material, f'CWE parsing failed: {str(e)}')
-        add_default_flag('cwe_operation_impact', operation_impact, f'CWE parsing failed: {str(e)}')
-
-    # Calculate final scores
-    print("\n📊 Calculating risk scores...")
     
-    map_affected_user = {
-        'High': 10,
-        'Medium': 6,
-        'Low': 2
+    # ===== Extract from CAPEC =====
+    try:
+        likelihood, severity, consequences, prerequisites = \
+            utils.get_capec_from_id(capec_id, capec_name)
+    except Exception as e:
+        print(f"      ⚠️  CAPEC extraction failed: {e}")
+        likelihood = 'Medium'
+        severity = 'Medium'
+        consequences = {}
+        prerequisites = ''
+    
+    # ===== Get EPSS score =====
+    try:
+        epss_score, epss_percentile = utils.get_epss_score(cve_id)
+    except:
+        epss_score = 0.5
+        epss_percentile = 50
+    
+    
+    # TARA: Opportunity
+    vector_opportunity_map = {
+        'NETWORK': 'Unlimited',
+        'ADJACENT_NETWORK': 'Much',
+        'ADJACENT': 'Much',
+        'LOCAL': 'Moderate',
+        'PHYSICAL': 'Difficult'
+    }
+    opportunity = vector_opportunity_map.get(str(attack_vector).upper(), 'Moderate')
+    
+    # TARA: Elapsed time
+    elapsed_time = 'day' if str(attack_complexity).upper() == 'LOW' else 'week'
+    
+    # DREAD: Attack discovery
+    complexity_discovery_map = {'LOW': 8, 'HIGH': 4}
+    base_discovery = complexity_discovery_map.get(str(attack_complexity).upper(), 6)
+    
+    likelihood_boost = {'High': 2, 'Medium': 0, 'Low': -2}
+    attack_discovery = max(1, min(10, base_discovery + likelihood_boost.get(likelihood, 0)))
+    
+    # DREAD: Damage
+    severity_damage_map = {
+        'Very High': 10, 'High': 8, 'Medium': 6, 'Low': 4, 'Very Low': 2
+    }
+    base_damage = severity_damage_map.get(severity, 6)
+    level_damage = max(base_damage, operation_impact)
+    
+    # DREAD: Affected users
+    vector_affected_map = {
+        'NETWORK': 10, 'ADJACENT_NETWORK': 7, 'ADJACENT': 7, 'LOCAL': 4, 'PHYSICAL': 2
+    }
+    location_affected_map = {
+        'cloud': 10,   # Fleet-wide impact (tous les véhicules)
+        'edge': 7,     # Regional impact (plusieurs véhicules)
+        'vehicle': 3   # Single vehicle impact
     }
     
-    coef_affected_user = 1
-    if template_base.get('safety_critical_update'):
-        coef_affected_user = 2
-        print("   ⚠️  Safety-critical update detected - severity doubled!")
+    # Utiliser la location si fournie, sinon inférer du attack_vector
+    if vulnerability_location:
+        affected_user = location_affected_map.get(vulnerability_location, 5)
+        print(f"   🌍 Affected users from location '{vulnerability_location}': {affected_user}/10")
+    else:
+        # Fallback: inférer de l'attack vector (ancien comportement)
+        vector_affected_map = {
+            'NETWORK': 10, 'ADJACENT_NETWORK': 7, 'ADJACENT': 7, 
+            'LOCAL': 4, 'PHYSICAL': 2
+        }
+        affected_user = vector_affected_map.get(str(attack_vector).upper(), 5)
+        print(f"   🌍 Affected users from attack vector '{attack_vector}': {affected_user}/10")
     
-    get_severity = coef_affected_user * getCapec.getSeverity()
-    if get_severity > 10:
-        get_severity = 10
     
-    deployment_to_affected_user = {
-        'cloud': 10,
-        'edge': 6,
-        'vehicle': 2
-    }
-    
-    deployment_location = template_base.get('deployment_location', 'vehicle')
-    affected_user = deployment_to_affected_user.get(deployment_location, 5)
-    
-    # Resolve attack vector with fallback (only flag if BOTH fail)
-    elt2 = attack_vector
-    if elt2 == 'None':
-        elt2 = mitre_attack_vector
-        if elt2 == 'None' or elt2 is None:
-            elt2 = 'NETWORK'
-            add_default_flag('attack_vector', elt2, 'Both CVE and MITRE extraction failed')
-        else:
-            print(f"   ✅ Using MITRE fallback for attack_vector: {elt2}")
-    
-    # Resolve privilege_required with fallback (only flag if BOTH fail)
-    elt1 = privilege_required
-    if elt1 == 'None':
-        elt1 = mitre_required_privileges
-        if elt1 == 'None' or elt1 is None:
-            elt1 = 'Low'
-            add_default_flag('privilege_required', elt1, 'Both CVE and MITRE extraction failed')
-        else:
-            print(f"   ✅ Using MITRE fallback for privilege_required: {elt1}")
-    
-    # Flag CVE-only fields if CVE failed
-    if cve_failed:
-        if attack_complexity == 'Low':
-            add_default_flag('attack_complexity', attack_complexity, 'CVE extraction failed')
-        if user_interaction == 'None':
-            add_default_flag('user_interaction', user_interaction, 'CVE extraction failed')
-    
-    # Flag low confidence
-    if overall_confidence < 0.70:
-        flag_for_review = True
-        message = f"⚠️  Low semantic confidence ({overall_confidence:.2f}) - expert verification recommended"
-        review_reasons.append(message)
-        print(message)
-    
-    # User inputs (no flagging - optional)
-    knowledge_cible_value = material_map.get(template_base.get('knowledge_cible'), 5)
-    necessary_material_value = material_map.get(template_base.get('necessary_material'), 5)
-    affected_user_value = map_affected_user.get(template_base.get('affected_user'), 5)
+    # HARA: Infer from consequences
+    hara_severity = 0
+    leak_information = 0
 
-    # Build result
-    result = {
-        'severity': get_severity,
-        'expertise': (getCapec.getLikehood() + necessary_material) / 2,
-        'exploitability': material_map.get(
-            template_base.get('necessary_material'), 
-            necessary_material
-        ),
-        'attack_discovery': getCapec.getLikehood(),
-        'knowledge_cible': knowledge_cible_value,
-        'necessary_material': necessary_material_value,
-        'level_damage': min(10, round((get_severity + operation_impact) / 2)),
-        'affected_user': affected_user_value,
-        'operational_impact': operation_impact,
-        'leak_information': getCapec.isConfenditalThreat(),
-        'attack_vector': elt2,
-        'attack_complexity': attack_complexity,
-        "privileges_required": elt1,
-        "user_interaction": user_interaction,
-        "safety_critical_update": template_base.get('safety_critical_update'),
+    if consequences:
+        print(f"\n   🔍 Analyzing CAPEC consequences for HARA:")
         
-        # Confidence metadata
-        'semantic_confidence': overall_confidence,
-        'confidence_level': confidence_level,
-        'matched_threats': {
-            'mitre_top3': getSimilar['mitre'],
-            'capec_top3': getSimilar['capec'],
-            'cwe_top3': getSimilar['cwe'],
-            'cve_top3': getSimilar['cve']
-        },
+        for scope, impacts in consequences.items():
+            impacts_str = str(impacts).lower()
+            
+            print(f"      {scope}: {impacts_str[:100]}...")  # Debug
+            
+            # Severity (safety impact) - PATTERNS PLUS LARGES
+            if any(term in impacts_str for term in [
+                'execute', 'code execution', 'arbitrary code',
+                'gain privilege', 'elevate privilege', 'privilege escalation',
+                'bypass', 'override'
+            ]):
+                hara_severity = max(hara_severity, 10)
+                print(f"         → Severity: 10 (code execution/privilege)")
+            
+            elif any(term in impacts_str for term in [
+                'modify memory', 'write memory', 'memory corruption',
+                'buffer overflow', 'injection'
+            ]):
+                hara_severity = max(hara_severity, 8)
+                print(f"         → Severity: 8 (memory corruption)")
+            
+            elif any(term in impacts_str for term in [
+                'modify', 'alter', 'change data',
+                'denial of service', 'dos', 'crash', 'unavailable'
+            ]):
+                hara_severity = max(hara_severity, 6)
+                print(f"         → Severity: 6 (data modification/DoS)")
+            
+            elif any(term in impacts_str for term in [
+                'read', 'access', 'disclose', 'leak', 'expose'
+            ]):
+                hara_severity = max(hara_severity, 4)
+                print(f"         → Severity: 4 (information disclosure)")
+            
+            # Privacy/Leak information
+            if any(term in impacts_str for term in [
+                'confidentiality', 'read data', 'read file', 'information disclosure',
+                'leak', 'expose', 'access data'
+            ]):
+                if any(term in impacts_str for term in ['read data', 'read file', 'full access']):
+                    leak_information = max(leak_information, 10)
+                    print(f"         → Privacy: 10 (full data access)")
+                elif 'read memory' in impacts_str:
+                    leak_information = max(leak_information, 7)
+                    print(f"         → Privacy: 7 (memory access)")
+                else:
+                    leak_information = max(leak_information, 5)
+                    print(f"         → Privacy: 5 (partial disclosure)")
+
+    # Si toujours aucun impact détecté, utiliser le CWE operation_impact comme proxy
+    if hara_severity == 0 and operation_impact >= 7:
+        hara_severity = operation_impact
+        print(f"   ⚠️  No CAPEC severity found, using CWE operation_impact: {hara_severity}")
+
+    print(f"\n   📊 Final HARA values (0-10):")
+    print(f"      Severity: {hara_severity}")
+    print(f"      Operational: {operation_impact}")
+    print(f"      Privacy: {leak_information}")
+
+    # Map to ISO 26262 classes
+    severity_iso, controllability_iso, exposure_iso = map_hara_to_iso26262(
+        hara_severity, operation_impact, leak_information
+    )
+
+    print(f"   🔍 ISO Classes: S{severity_iso} + E{exposure_iso} + C{controllability_iso}")
+
+    # Convert strings to numbers for DREAD
+    knowledge_numeric_map = {'PUBLIC': 10, 'RESTRICTED': 7, 'SENSITIVE': 5, 'CRITICAL': 3}
+    expertise_numeric_map = {'Layman': 10, 'Proficient': 6, 'Expert': 3}
+    
+    privilege_expertise_map = {'NONE': 'Layman', 'LOW': 'Proficient', 'HIGH': 'Expert'}
+    expertise = privilege_expertise_map.get(str(privilege_required).upper(), 'Proficient')
+    
+    vector_knowledge_map = {
+        'NETWORK': 'PUBLIC', 'ADJACENT_NETWORK': 'RESTRICTED', 
+        'ADJACENT': 'RESTRICTED', 'LOCAL': 'SENSITIVE', 'PHYSICAL': 'CRITICAL'
+    }
+    knowledge_cible = vector_knowledge_map.get(str(attack_vector).upper(), 'RESTRICTED')
+    
+    # Assemble final parameters
+    risk_params = {
+        # TARA parameters
+        'attack_vector': str(attack_vector),
+        'attack_complexity': str(attack_complexity),
+        'privileges_required': str(privilege_required),
+        'user_interaction': str(user_interaction),
+        'opportunity': opportunity,
+        'elapsed_time': elapsed_time,
         
-        # Review metadata
-        'flag_for_review': flag_for_review,
-        'review_reasons': review_reasons,
-        'default_values_used': default_values_used
+        # DREAD parameters
+        'level_damage': int(level_damage),
+        'affected_user': int(affected_user),
+        #'necessary_material': int(necessary_material),
+        #'attack_discovery': int(attack_discovery),
+        #'expertise': expertise_numeric_map.get(expertise, 6),
+        #'knowledge_cible': knowledge_numeric_map.get(knowledge_cible, 7),
+        'vulnerability_location': vulnerability_location,
+        
+        # HARA parameters (0-10 for display)
+        'severity': int(hara_severity),
+        'operational_impact': int(operation_impact),
+        'leak_information': int(leak_information),
+        
+        # ✅ HARA ISO 26262 classes (for calculation)
+        'severity_iso': severity_iso,
+        'exposure_iso': exposure_iso,
+        'controllability_iso': controllability_iso,
+        
+        # Safety critical flag (will be overridden by user input)
+        'safety_critical_update': False,
+        
+        # Metadata
+        'cve_id': cve_id,
+        'cwe_id': cwe_id,
+        'capec_id': capec_id,
+        'epss_score': float(epss_score),
+        'database_source': 'CVE+CWE+CAPEC'
     }
     
-    # Summary
-    if flag_for_review:
-        print("\n" + "="*60)
-        print("⚠️  EXPERT REVIEW REQUIRED")
-        print("="*60)
-        print(f"   {len(default_values_used)} default value(s) assigned:")
-        for dv in default_values_used:
-            print(f"   • {dv['field']}: {dv['value']}")
-        print("="*60)
+    print(f"   ✅ Parameters extracted successfully")
+    print(f"   🔍 ISO Classes: S{severity_iso} + E{exposure_iso} + C{controllability_iso}")
     
-    print("\n✅ Analysis complete!")
-    print("="*60)
-    
-    return result
+    return risk_params
 
 
-if __name__ == '__main__':
-    # Setup argument parser
+# FONCTION : Analyze Threat Scenario (Main)
+def analyze_threat_scenario(scenario_query, 
+                           atd_path='Automotive-threat-database.csv',
+                           atd_confidence_threshold=0.70,
+                           top_k=3,
+                           safety_critical_update=False,
+                           vulnerability_location='vehicle'):
+    """
+    Analyze threat scenario with TWO-TIER extraction logic
+    """
+    
+    print(f"\n{'='*80}")
+    print(f"ANALYZING THREAT SCENARIO")
+    print(f"{'='*80}")
+    print(f"Query: {scenario_query}")
+    print(f"ATD Confidence Threshold: {atd_confidence_threshold}")
+    print(f"Vulnerability Location: {vulnerability_location.upper()}")
+    print(f"{'='*80}\n")
+    
+
+    # TIER 1: TRY ATD FIRST
+    risk_params = None
+    extraction_method = None
+    atd_match_info = None
+    
+    print("🔍 TIER 1: Checking Automotive Threat Database (ATD)...")
+    
+    try:
+        desc_atd, tec_atd = load_and_prepare_atd(atd_path)
+        print(f"   ✓ Loaded ATD: {len(tec_atd)} threats")
+        
+        success, risk_params, atd_match = try_atd_extraction(
+            query=scenario_query,
+            desc_atd=desc_atd,
+            tec_atd=tec_atd,
+            confidence_threshold=atd_confidence_threshold,
+            vulnerability_location=vulnerability_location
+        )
+        
+        if success:
+            extraction_method = 'ATD'
+            atd_match_info = atd_match
+            
+            print(f"\n   ✅ ATD MATCH FOUND (High Confidence)")
+            print(f"   Threat: {atd_match['id']} - {atd_match['name']}")
+            print(f"   Confidence: {atd_match['confidence']:.4f}")
+            print(f"   → Using ATD for risk parameter extraction")
+            
+        elif atd_match:
+            print(f"\n   ⚠️  ATD match found but confidence too low")
+            print(f"   Threat: {atd_match['id']} - {atd_match['name']}")
+            print(f"   Confidence: {atd_match['confidence']:.4f} < {atd_confidence_threshold}")
+            print(f"   → Falling back to CVE/CWE/CAPEC extraction")
+            
+        else:
+            print(f"\n   ℹ️  No ATD match found")
+            print(f"   → Falling back to CVE/CWE/CAPEC extraction")
+            
+    except FileNotFoundError:
+        print(f"   ⚠️  ATD database not found at: {atd_path}")
+        print(f"   → Falling back to CVE/CWE/CAPEC extraction")
+    except Exception as e:
+        print(f"   ⚠️  ATD extraction error: {e}")
+        print(f"   → Falling back to CVE/CWE/CAPEC extraction")
+    
+    # TIER 2: FALLBACK TO CVE/CWE/CAPEC
+    if risk_params is None:
+        print(f"\n🔍 TIER 2: Using CVE/CWE/CAPEC databases...")
+        
+        try:
+            cve_df = utils.get_cve()
+            cwe_df = utils.get_cwe()
+            capec_df = utils.get_capec()
+            
+            desc_cve = utils.get_cve_description().tolist()
+            desc_cwe = utils.get_all_cwe_description().tolist()
+            desc_capec = utils.get_all_capec_description().tolist()
+            
+            tec_cve = cve_df
+            tec_cwe = utils.get_all_cwe()
+            tec_capec = utils.get_all_capec()
+            
+            print(f"   ✓ Loaded CVE: {len(tec_cve)} entries")
+            print(f"   ✓ Loaded CWE: {len(tec_cwe)} entries")
+            print(f"   ✓ Loaded CAPEC: {len(tec_capec)} entries")
+            
+            matches = get_top_match(
+                query=scenario_query,
+                desc_cwe=desc_cwe,
+                desc_capec=desc_capec,
+                desc_cve=desc_cve,
+                tec_capec=tec_capec,
+                tec_cwe=tec_cwe,
+                tec_cve=tec_cve,
+                top_value=top_k
+            )
+            
+            print(f"\n   ✅ CVE/CWE/CAPEC matches found")
+            print(f"   Top CVE: {matches['cve'][0]['id']}")
+            print(f"   Top CWE: {matches['cwe'][0]['id']}")
+            print(f"   Top CAPEC: {matches['capec'][0]['id']}")
+            
+            risk_params = extract_risk_from_matches(matches, vulnerability_location=vulnerability_location)
+            extraction_method = 'CVE+CWE+CAPEC'
+            
+        except Exception as e:
+            print(f"   ✗ Error loading CVE/CWE/CAPEC databases: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+
+    # DISPLAY RESULTS
+    if risk_params is None:
+        print(f"\n✗ Could not extract risk parameters")
+        return None
+    
+    # Override with user-specified safety_critical flag
+    risk_params['safety_critical_update'] = safety_critical_update
+    risk_params['vulnerability_location'] = vulnerability_location
+
+    print(f"\n{'='*80}")
+    print(f"EXTRACTED RISK PARAMETERS")
+    print(f"{'='*80}")
+    print(f"Extraction Method: {extraction_method}")
+    
+    if atd_match_info:
+        print(f"ATD Match: {atd_match_info['id']} - {atd_match_info['name']}")
+        print(f"ATD Confidence: {atd_match_info['confidence']:.4f}")
+    
+    print(f"\n--- TARA Parameters ---")
+    print(f"  Attack Vector: {risk_params.get('attack_vector')}")
+    print(f"  Attack Complexity: {risk_params.get('attack_complexity')}")
+    print(f"  Privileges Required: {risk_params.get('privileges_required')}")
+    print(f"  User Interaction: {risk_params.get('user_interaction')}")
+    
+    print(f"\n--- DREAD Parameters ---")
+    print(f"  Damage: {risk_params.get('level_damage')}/10")
+    #print(f"  Reproducibility (Expertise): {risk_params.get('expertise')}")
+    #print(f"  Exploitability: {risk_params.get('necessary_material')}/10")
+    print(f"  Affected Users: {risk_params.get('affected_user')}/10 (Location: {risk_params.get('vulnerability_location', 'N/A').upper()})")
+    #print(f"  Discoverability: {risk_params.get('attack_discovery')}/10")
+    
+    print(f"\n--- HARA Parameters ---")
+    print(f"  Severity: {risk_params.get('severity')}/10")
+    print(f"  Operational Impact: {risk_params.get('operational_impact')}/10")
+    print(f"  Privacy Impact: {risk_params.get('leak_information')}/10")
+    
+    print(f"\n--- Safety Critical ---")
+    print(f"  Safety Critical Update: {'YES' if risk_params.get('safety_critical_update') else 'NO'}")
+    
+
+    # CALCULATE RISK SCORES
+    print(f"\n{'='*80}")
+    print(f"RISK ASSESSMENT SCORES")
+    print(f"{'='*80}")
+    
+    try:
+        analyzer = analyse_automatique(risk_params)
+        final_risk_score = analyzer.get_risk()
+        risk_level, risk_props = analyzer.get_risk_level(final_risk_score)
+        
+        print(f"\nFinal Aggregated Risk Score: {final_risk_score:.2f}/5.0")
+        print(f"Risk Level: {risk_level} {risk_props['color']}")
+        print(f"Priority: {risk_props['priority']}")
+        
+        results = {
+            'scenario': scenario_query,
+            'extraction_method': extraction_method,
+            'atd_match': atd_match_info,
+            'risk_parameters': risk_params,
+            'risk_scores': {
+                'final_score': final_risk_score,
+                'risk_level': risk_level,
+                'risk_properties': risk_props
+            }
+        }
+        
+        return results
+        
+    except Exception as e:
+        print(f"\n✗ Error during risk calculation: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+# MAIN
+
+def main():
+    """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='Automotive OTA Risk Assessment Framework',
+        description='Automotive Threat Risk Assessment with Two-Tier Extraction',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
-Examples:
-  python service.py -s "OTA malware injection"
-  python service.py -s "Malicious firmware targeting brake ECU" --safety-critical
-  python service.py -s "Edge node authentication bypass" --deployment cloud
+TWO-TIER EXTRACTION LOGIC:
+  1. ATD (Automotive Threat Database) - if confidence >= threshold
+  2. CVE/CWE/CAPEC - fallback if ATD confidence too low
         '''
     )
     
-    parser.add_argument('-s', '--scenario', required=True, type=str,
-                        help='Vulnerability or threat scenario description')
-    parser.add_argument('--safety-critical', choices=['YES', 'NO'],
-                        help='Mark as safety-critical update')
-    parser.add_argument('--deployment', type=str, choices=['cloud', 'edge', 'vehicle'],
-                        default='vehicle', help='Deployment location')
-    parser.add_argument('--affected-user', type=str, choices=['High', 'Medium', 'Low'],
-                        help='Number of affected users')
-    parser.add_argument('--knowledge', type=str, choices=['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'VERY_LOW'],
-                        help='Required knowledge level')
-    parser.add_argument('--material', type=str, choices=['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'VERY_LOW'],
-                        help='Required material/equipment')
+    parser.add_argument('-s', '--scenario', required=True,
+                        help='Threat scenario description')
+    parser.add_argument('-t', '--threshold', type=float, default=0.70,
+                        help='ATD confidence threshold (default: 0.70)')
+    parser.add_argument('-k', '--top-k', type=int, default=3,
+                        help='Number of top matches (default: 3)')
+    parser.add_argument('-d', '--database', default='Automotive-threat-database.csv',
+                        help='Path to ATD CSV file')
+    parser.add_argument('--safety-critical', action='store_true',
+                        help='Flag if the update targets a safety-critical component')
+    parser.add_argument('-v', '--vuln-location', type=str, 
+                        choices=['cloud', 'edge', 'vehicle'],
+                        default='vehicle',
+                        help='Vulnerability location: cloud (fleet-wide), edge (regional), vehicle (single)')
+    
     
     args = parser.parse_args()
     
-    # Build template
-    template_base = {
-        'description': args.scenario,
-        'safety_critical_update': args.safety_critical,
-        'deployment_location': args.deployment,
-    }
-    
-    if args.affected_user:
-        template_base['affected_user'] = args.affected_user
-    if args.knowledge:
-        template_base['knowledge_cible'] = args.knowledge
-    if args.material:
-        template_base['necessary_material'] = args.material
-    
-    # Print header
-    print("\n" + "="*80)
-    print("AUTOMOTIVE OTA RISK ASSESSMENT FRAMEWORK")
-    print("="*80)
-    print(f"Scenario: {args.scenario}")
-    print(f"Safety-Critical: {'YES' if args.safety_critical else 'NO'}")
-    print(f"Deployment: {args.deployment.upper()}")
-    print("="*80)
-    
     try:
-        # Analyze
-        get_analyse_template = get_analyse(template_base)
+        results = analyze_threat_scenario(
+            scenario_query=args.scenario,
+            atd_path=args.database,
+            atd_confidence_threshold=args.threshold,
+            top_k=args.top_k,
+            safety_critical_update=args.safety_critical,
+            vulnerability_location=args.vuln_location
+        )
         
-        # Create risk analyzer
-        print("\n" + "="*60)
-        print("CALCULATING RISK SCORES")
-        print("="*60)
-        risk_analyzer = analyse_automatique(get_analyse_template)
-        
-        # Transfer review flags
-        risk_analyzer.flag_for_review = get_analyse_template.get('flag_for_review', False)
-        risk_analyzer.review_reasons = get_analyse_template.get('review_reasons', [])
-        risk_analyzer.default_values_used = get_analyse_template.get('default_values_used', [])
-        
-        # Calculate risk
-        risk_score = risk_analyzer.get_risk()
-        risk_level, risk_props = risk_analyzer.get_risk_level(risk_score)
-        
-        # Results
-        print("\n" + "="*60)
-        print("FINAL RISK ASSESSMENT:")
-        print("="*60)
-        print(f"Risk Score: {risk_score:.2f}/5.0")
-        print(f"Risk Level: {risk_level} {risk_props['color']}")
-        print(f"Priority: {risk_props['priority']}")
-        print(f"\nHARA: {risk_analyzer.hara.getRisque():.2f} (ASIL: {risk_analyzer.hara.getAsil()})")
-        print(f"TARA: {risk_analyzer.tara.Risque():.2f}")
-        print(f"DREAD: {risk_analyzer.dread.get_risque():.2f}")
-        
-        # Review summary
-        if risk_analyzer.flag_for_review:
-            print("\n" + "="*60)
-            print("⚠️  EXPERT REVIEW REQUIRED")
-            print("="*60)
-            for reason in risk_analyzer.review_reasons:
-                print(f"   {reason}")
+        if results:
+            print(f"\n{'='*80}")
+            print(f"✅ ANALYSIS COMPLETE")
+            print(f"{'='*80}")
+            print(f"\nExtraction Method: {results['extraction_method']}")
+            print(f"Final Risk Level: {results['risk_scores']['risk_level']} {results['risk_scores']['risk_properties']['color']}")
+            print(f"Risk Score: {results['risk_scores']['final_score']:.2f}/5.0")
+            return 0
         else:
-            print("\n✅ No expert review required")
+            print(f"\n{'='*80}")
+            print(f"✗ ANALYSIS FAILED")
+            print(f"{'='*80}")
+            return 1
         
-        print("="*60)
-    
     except Exception as e:
-        print("\n" + "="*60)
-        print("❌ ERROR:")
-        print("="*60)
-        print(f"{str(e)}")
+        print(f"\n✗ ERROR: {e}")
         import traceback
         traceback.print_exc()
-        sys.exit(1)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

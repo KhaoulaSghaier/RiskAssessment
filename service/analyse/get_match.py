@@ -18,13 +18,13 @@ def load_or_generate_embeddings(description, path_embedding, model):
         np.save(path_embedding, embedding)
     return embedding
 
-def get_top(query_embedding, embeddings, description, type='MITRE', top_n=3):
+def get_top(query_embedding, embeddings, description, type='CVE', top_n=3):
     """
     Get top N matches with confidence scores
     :param query_embedding: embedding of the query
     :param embeddings: embeddings of the database
     :param description: dataframe with descriptions
-    :param type: source type (MITRE, CWE, CAPEC, CVE)
+    :param type: source type (CWE, CAPEC, CVE)
     :param top_n: number of top matches to return
     :return: list of top matches with confidence scores
     """
@@ -46,16 +46,16 @@ def get_top(query_embedding, embeddings, description, type='MITRE', top_n=3):
     
     return results
 
-def get_top_match(query, desc_mitre, desc_cwe, desc_capec, desc_cve, tec_mitre, tec_capec, tec_cwe, tec_cve,
-                  mitre_path='mitre_embedding.npy', capec_path='capec_embedding.npy', 
+def get_top_match(query, desc_cwe, desc_capec, desc_cve, tec_capec, tec_cwe, tec_cve,
+                  capec_path='capec_embedding.npy', 
                   cwe_path='cwe_embedding.npy', cve_path='cve_embedding.npy',
                   model_name="all-mpnet-base-v2", top_value=3):
     """
     Get top matches from all databases with confidence scores
     :param query: threat description
-    :param desc_mitre, desc_cwe, desc_capec, desc_cve: descriptions from databases
-    :param tec_mitre, tec_capec, tec_cwe, tec_cve: technique dataframes
-    :param mitre_path, capec_path, cwe_path, cve_path: embedding cache paths
+    :param desc_cwe, desc_capec, desc_cve: descriptions from databases
+    :param tec_capec, tec_cwe, tec_cve: technique dataframes
+    :param capec_path, cwe_path, cve_path: embedding cache paths
     :param model_name: sentence transformer model name
     :param top_value: number of top matches per database (default: 3)
     :return: dictionary with top matches per database
@@ -63,7 +63,6 @@ def get_top_match(query, desc_mitre, desc_cwe, desc_capec, desc_cve, tec_mitre, 
     model = SentenceTransformer(model_name)
     
     # Load or generate embeddings
-    embeddings_mitre = load_or_generate_embeddings(desc_mitre, mitre_path, model)
     embeddings_capec = load_or_generate_embeddings(desc_capec, capec_path, model)
     embeddings_cwe = load_or_generate_embeddings(desc_cwe, cwe_path, model)
     embeddings_cve = load_or_generate_embeddings(desc_cve, cve_path, model)
@@ -72,19 +71,17 @@ def get_top_match(query, desc_mitre, desc_cwe, desc_capec, desc_cve, tec_mitre, 
     query_embedding = model.encode(query, batch_size=64, show_progress_bar=True)
 
     # Get top matches from each database
-    mitre_top = get_top(query_embedding, embeddings_mitre, tec_mitre, 'MITRE', top_value)
     capec_top = get_top(query_embedding, embeddings_capec, tec_capec, 'CAPEC', top_value)
     cwe_top = get_top(query_embedding, embeddings_cwe, tec_cwe, 'CWE', top_value)
     cve_top = get_top(query_embedding, embeddings_cve, tec_cve, 'CVE', top_value)
     
     # Return structured results
     return {
-        'mitre': mitre_top,
         'capec': capec_top,
         'cwe': cwe_top,
         'cve': cve_top,
         # For backwards compatibility, also return as flat list with top match first
-        'top_matches': [mitre_top[0], capec_top[0], cwe_top[0], cve_top[0]]
+        'top_matches': [capec_top[0], cwe_top[0], cve_top[0]]
     }
 
 
@@ -95,7 +92,7 @@ def calculate_overall_confidence(matches_dict):
     :return: overall confidence score (0-1)
     """
     all_confidences = []
-    for source in ['mitre', 'capec', 'cwe', 'cve']:
+    for source in ['capec', 'cwe', 'cve']:
         if source in matches_dict:
             # Use top match confidence with higher weight
             all_confidences.append(matches_dict[source][0]['confidence'] * 2)  # Top match weighted
