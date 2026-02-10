@@ -284,5 +284,5 @@ ota-risk-assessment/
 - ISO 26262:2018 - Road vehicles — Functional safety
 - ISO 24089:2023 — Road vehicles — Software update engineering
 - CVSS v3.1 Specification - Common Vulnerability Scoring System
-- Automotive Threat Database (ATD) - https://github.com/anonymous/ATD
+- Automotive Threat Database (ATD) - [https://github.com/anonymous/ATD](https://github.com/jayaratned/AutomotiveTD)
 
