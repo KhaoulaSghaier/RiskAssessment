@@ -171,7 +171,7 @@ Priority: 1 (Urgent response <7 days)
 ota-risk-assessment/
 ├── service/
 │   └── analyse/
-│       ├── Service1.py              # Main CLI entry point
+│       ├── Service.py              # Main CLI entry point
 │       ├── analyse_automatique.py   # Risk aggregation orchestrator
 │       ├── TARA.py                  # TARA (ISO 21434) implementation
 │       ├── HARA.py                  # HARA (ISO 26262) implementation
