@@ -91,7 +91,7 @@ class Dread:
         # Simple average (like DREAD original)
         dread_avg = (self.damage + self.affected_user) / 2.0
         
-        # Normalize [0, 10] → [1, 5]
+        # Normalize [0, 10] to [1, 5]
         dread_risk = 1.0 + (dread_avg / 10.0) * 4.0
         
         print(f"   🔍 DREAD Calculation:")

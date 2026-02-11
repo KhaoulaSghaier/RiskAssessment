@@ -1,6 +1,6 @@
 # Critère qui vont vérifier qu'on respect bien
 # les critères de sécurité imporsé par la CIA(confidentiality,Integrity,Availabiliity)
-# low = 0 and max = 12
+
 import numpy as np
 
 critereImpact = {
@@ -74,8 +74,6 @@ ImpactRating = {
     'Severe': 2,
 }
 
-
-# Dans TARA.py, remplacer les fonctions getImpactInfo() et calcul_impact()
 
 class TARA:
     def __init__(self, safety, financial, operational, privacy,
