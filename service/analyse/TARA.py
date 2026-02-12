@@ -62,7 +62,7 @@ cvss_mapping = {
 
 
 FeasabilityRating = {
-    'Very low': 0.5,
+    'Very low': 0,
     'Low': 1,
     'Medium':1.5,
     'High':2,
