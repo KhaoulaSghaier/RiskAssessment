@@ -26,9 +26,9 @@ DreadImpact = {
     ,
     'Affected_Users':{
         'Zero': 0,
-        'Low': 2.5,
-        'Few': 6,
-        'Administrative':8,
+        'Individual vehicle': 2.5,
+        'Subset of vehicles': 6,
+        'High':8,
         'All':10,
     },
 
