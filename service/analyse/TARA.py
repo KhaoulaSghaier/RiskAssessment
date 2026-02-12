@@ -62,7 +62,7 @@ cvss_mapping = {
 
 
 FeasabilityRating = {
-    'Very low': 0,
+    'Very low': 0.5,
     'Low': 1,
     'Medium':1.5,
     'High':2,
@@ -146,7 +146,7 @@ class TARA:
         
         print(f"\n      Impact Sum:   {impact_sum:>4}  (max: 2200)")
         print(f"      Impact Level: {impact_level}")
-        print(f"      Impact Rating: {impact_rating} / 2.0")
+        print(f"      Impact Rating: {impact_rating}")
         
         # Feasibility parameters
         print("\n   🎯 FEASIBILITY PARAMETERS (CVSS v3.1):")
@@ -160,16 +160,16 @@ class TARA:
         feasibility_rating = self.calcul_feasibility()
         
         print(f"\n      Exploitability Score: {exploitability:.2f}  (formula: 8.22 × {self.av_weight} × {self.ac_weight} × {self.pr_weight} × {self.ui_weight})")
-        print(f"      Feasibility Rating:   {feasibility_rating} / 2.0")
+        print(f"      Feasibility Rating:   {feasibility_rating}")
         
         # Feasibility level
-        if feasibility_rating == 0:
+        if 0.12 <= feasibility_rating <= 1.05:
             feasibility_level = "Very Low"
-        elif feasibility_rating == 1:
+        elif 1.06 < feasibility_rating <= 1.99:
             feasibility_level = "Low"
-        elif feasibility_rating == 1.5:
+        elif 2 < feasibility_rating <= 2.95:
             feasibility_level = "Medium"
-        else:
+        elif 2.96 < feasibility_rating <= 3.89:
             feasibility_level = "High"
         
         print(f"      Feasibility Level:    {feasibility_level}")

@@ -257,9 +257,9 @@ def load_data():
         lambda x: x.str.replace('^::|::$', '', regex=True)
     )
 
-    with open(DIR_PATH / "enterprise-attack.json", "r", encoding="utf-8") as f:
-        mitre_data = json.load(f)
-    return cve_df,cwe_df,capec_df,mitre_data,epss_df
+    #with open(DIR_PATH / "enterprise-attack.json", "r", encoding="utf-8") as f:
+    #    mitre_data = json.load(f)
+    #return cve_df,cwe_df,capec_df,mitre_data,epss_df
 
 
 
