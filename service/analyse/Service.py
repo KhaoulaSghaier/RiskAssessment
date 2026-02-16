@@ -269,7 +269,7 @@ def analyze_threat_scenario(scenario_query,
     """
     
     print(f"\n{'='*80}")
-    print(f"ANALYZING THREAT SCENARIO")
+    print(f"ANALYZING VULNERABILITY SCENARIO")
     print(f"{'='*80}")
     print(f"Query: {scenario_query}")
     print(f"ATD Confidence Threshold: {atd_confidence_threshold}")

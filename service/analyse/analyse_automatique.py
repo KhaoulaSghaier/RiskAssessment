@@ -78,7 +78,7 @@ class analyse_automatique:
         
         # HARA expects (exposure, controllability, severity)
         self.hara = Hara(exposure_iso, controllability_iso, severity_iso)
-        print(f"   🔍 HARA ISO Classes: S{severity_iso} + E{exposure_iso} + C{controllability_iso}")
+        print(f"   🔍 HARA ISO Classes: f(S{severity_iso},E{exposure_iso},C{controllability_iso})")
 
     def compile_all(self):
         self.compileHara()

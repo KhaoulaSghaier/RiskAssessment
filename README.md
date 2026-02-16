@@ -95,7 +95,7 @@ py -3 -m service.analyse.Service \
 ## 📊 Output Example
 ```
 ================================================================================
-ANALYZING THREAT SCENARIO
+ANALYZING VULNERABILITY SCENARIO
 ================================================================================
 Query: Firmware Signature Validation Bypass Vulnerability
 ATD Confidence Threshold: 0.8
@@ -132,7 +132,7 @@ Extraction Method: ATD
 ================================================================================
 RISK ASSESSMENT SCORES
 ================================================================================
-🔍 HARA ISO Classes: S3 + E4 + C3
+🔍 HARA ISO Classes: f(S3,E4,C3)
 
 TARA (ISO 21434):
   Impact Sum: 2200 (Severe)
