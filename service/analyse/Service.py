@@ -230,17 +230,17 @@ def extract_risk_from_matches(matches, vulnerability_location='vehicle'):
         #'knowledge_cible': knowledge_numeric_map.get(knowledge_cible, 7),
         'vulnerability_location': vulnerability_location,
         
-        # HARA parameters (0-10 for display)
+        # HARA parameters 
         'severity': int(hara_severity),
         'operational_impact': int(operation_impact),
         'leak_information': int(leak_information),
         
-        # ✅ HARA ISO 26262 classes (for calculation)
+        # ✅ HARA ISO 26262 classes 
         'severity_iso': severity_iso,
         'exposure_iso': exposure_iso,
         'controllability_iso': controllability_iso,
         
-        # Safety critical flag (will be overridden by user input)
+        # Safety critical flag 
         'safety_critical_update': False,
         
         # Metadata
@@ -252,7 +252,7 @@ def extract_risk_from_matches(matches, vulnerability_location='vehicle'):
     }
     
     print(f"   ✅ Parameters extracted successfully")
-    print(f"   🔍 ISO Classes: S{severity_iso} + E{exposure_iso} + C{controllability_iso}")
+    print(f"   🔍 ISO Classes: S{severity_iso} , E{exposure_iso} , C{controllability_iso}")
     
     return risk_params
 
@@ -260,7 +260,7 @@ def extract_risk_from_matches(matches, vulnerability_location='vehicle'):
 # FONCTION : Analyze Threat Scenario (Main)
 def analyze_threat_scenario(scenario_query, 
                            atd_path='Automotive-threat-database.csv',
-                           atd_confidence_threshold=0.70,
+                           atd_confidence_threshold=0.8,
                            top_k=3,
                            safety_critical_update=False,
                            vulnerability_location='vehicle'):
