@@ -71,12 +71,12 @@ class analyse_automatique:
             attack_vector, attack_complexity, privileges_required, user_interaction
         )
     def compileHara(self):
-        # Use of ISO 26262 classes (1-3 for S/C, 1-4 for E)
+        # Use ISO 26262 classes (1-3 for S/C, 1-4 for E)
         severity_iso = self.scenario.get("severity_iso", 1)         # 1-3
         exposure_iso = self.scenario.get("exposure_iso", 1)          # 1-4
         controllability_iso = self.scenario.get("controllability_iso", 1)  # 1-3
         
-        # HARA parameters (exposure, controllability, severity)
+        # HARA expects (exposure, controllability, severity)
         self.hara = Hara(exposure_iso, controllability_iso, severity_iso)
         print(f"   🔍 HARA ISO Classes: f(S{severity_iso},E{exposure_iso},C{controllability_iso})")
 
