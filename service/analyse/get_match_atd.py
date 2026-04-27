@@ -517,8 +517,8 @@ def extract_risk_parameters_from_atd(atd_match, vulnerability_location='vehicle'
         
         # HARA parameters (0-10 scale)
         'severity': hara_severity,
-        'operational_impact': hara_exposure,  # Kept name to avoid all code changes, but represents exposure
-        'leak_information': hara_controllability,  # Kept name to avoid all code changes, but represents controllability
+        'hara_exposure': hara_exposure,
+        'hara_controllability': hara_controllability,
         
         # HARA ISO classes
         'severity_iso': severity_class,
