@@ -10,7 +10,7 @@ def load_automotive_threat_database(csv_path):
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"ATD database not found at: {csv_path}")
     
-    # Load CSV - try different separators and encodings
+    # Load CSV 
     try:
         df = pd.read_csv(csv_path)
     except:
