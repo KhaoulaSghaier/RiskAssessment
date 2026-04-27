@@ -37,7 +37,6 @@ This framework provides automated risk quantification for Over-The-Air (OTA) upd
 
 - Python 3.8+
 - pip (Python package manager)
-- Internet connection (for initial model download)
 
 ---
 
@@ -45,8 +44,8 @@ This framework provides automated risk quantification for Over-The-Air (OTA) upd
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-repo/ota-risk-assessment.git
-cd ota-risk-assessment
+git clone https://anonymous.4open.science/status/RiskAssessment-2B51
+cd PST26/
 ```
 
 ### 2. Install dependencies
@@ -64,11 +63,8 @@ torch>=2.0.0
 ```
 
 ### 3. Verify database files
-Ensure the following files are in the `service/analyse/` directory:
+Ensure the following file is in the `service/analyse/` directory:
 - `Automotive-threat-database.csv` (509 automotive vulnerabilities)
-- `cve.csv` (fallback for low-confidence matches)
-- `cwe.csv` (weakness patterns)
-- `capec.csv` (attack patterns)
 
 ---
 
@@ -157,7 +153,6 @@ ADAPTIVE AGGREGATION (Safety-Critical: 50% HARA + 25% TARA + 25% DREAD)
 
 Final Aggregated Risk Score: 4.75 / 5.0
 Risk Level: CRITICAL 🚨
-Priority: 1 (Urgent response <7 days)
 
 ================================================================================
 ✅ ANALYSIS COMPLETE
@@ -179,9 +174,6 @@ ota-risk-assessment/
 │       ├── get_match_atd.py         # Semantic ATD matching (MPNet)
 │       ├── utils.py                 # Database loading utilities
 │       ├── Automotive-threat-database.csv  # Primary threat database
-│       ├── cve.csv                  # Fallback vulnerability database
-│       ├── cwe.csv                  # Weakness patterns
-│       └── capec.csv                # Attack patterns
 ├── requirements.txt
 └── README.md
 ```
@@ -196,7 +188,7 @@ ota-risk-assessment/
 - Pre-trained on diverse domains with masked and permuted language modeling
 - Cosine similarity matching across 509 ATD entries
 - Confidence threshold filtering (default: 0.8)
-- Fallback to CVE/CWE/CAPEC when ATD confidence is low
+- Flag expert review when ATD confidence is low
 
 **Performance**: 88.97% average confidence on automotive vulnerability descriptions
 
@@ -269,12 +261,12 @@ ota-risk-assessment/
 
 ## 📈 Risk Classification
 
-| Score Range | Classification | Priority | 
-|-------------|---------------|----------|
-| **4.0 - 5.0** | **CRITICAL** 🚨 | Priority 1 | 
-| **3.0 - 4.0** | **HIGH** 🔴 | Priority 2 | 
-| **2.0 - 3.0** | **MEDIUM** 🟠 | Priority 3 | 
-| **1.0 - 2.0** | **LOW** 🟡 | Priority 4 |
+| Score Range | Classification | 
+|-------------|---------------|
+| **4.0 - 5.0** | **CRITICAL** 🚨 | 
+| **3.0 - 4.0** | **HIGH** 🔴 | 
+| **2.0 - 3.0** | **MEDIUM** 🟠 | 
+| **1.0 - 2.0** | **LOW** 🟡 | 
 
 
 
