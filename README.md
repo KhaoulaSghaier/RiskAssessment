@@ -45,8 +45,8 @@ This framework provides automated risk quantification for Over-The-Air (OTA) upd
 
 ### 1. Clone the repository
 ```bash
-git clone "repo_url"
-cd RiskAssessment
+git clone https://github.com/your-repo/ota-risk-assessment.git
+cd ota-risk-assessment
 ```
 
 ### 2. Install dependencies
@@ -77,7 +77,7 @@ Ensure the following files are in the `service/analyse/` directory:
 ### Command-Line Interface
 ```bash
 py -3 -m service.analyse.Service \
-  -s "Firmware Signature Validation Bypass Vulnerability" \
+  -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability" \
   -t 0.8 \
   -d "service/analyse/Automotive-threat-database.csv" \
   --vuln-location cloud \
@@ -95,7 +95,7 @@ py -3 -m service.analyse.Service \
 ## 📊 Output Example
 ```
 ================================================================================
-ANALYZING VULNERABILITY SCENARIO
+ANALYZING THREAT SCENARIO
 ================================================================================
 Query: Firmware Signature Validation Bypass Vulnerability
 ATD Confidence Threshold: 0.8
@@ -126,13 +126,13 @@ Extraction Method: ATD
   Systemic: Potentially Systemic
 
 --- DREAD Parameters ---
-  Damage: 10/10 
+  Damage: 10/10 (Safety-critical)
   Affected Users: 10/10 (Location: CLOUD)
 
 ================================================================================
 RISK ASSESSMENT SCORES
 ================================================================================
-🔍 HARA ISO Classes: f(S3,E4,C3)
+🔍 HARA ISO Classes: S3 + E4 + C3
 
 TARA (ISO 21434):
   Impact Sum: 2200 (Severe)
@@ -157,6 +157,7 @@ ADAPTIVE AGGREGATION (Safety-Critical: 50% HARA + 25% TARA + 25% DREAD)
 
 Final Aggregated Risk Score: 4.75 / 5.0
 Risk Level: CRITICAL 🚨
+Priority: 1 (Urgent response <7 days)
 
 ================================================================================
 ✅ ANALYSIS COMPLETE
@@ -224,7 +225,7 @@ ota-risk-assessment/
 **Controllability**: UI → {C1, C2, C3}
 - NONE→10 (C3), REQUIRED→2 (C1)
 
-**ASIL Lookup**: ISO 26262 Table (S, E, C) → {QM, A, B, C, D}
+**ASIL Lookup**: ISO 26262 Table D.4 (S, E, C) → {QM, A, B, C, D}
 
 **Formula**: HARA_risk = 1 + ASIL_numeric
 
@@ -232,7 +233,7 @@ ota-risk-assessment/
 
 **Damage**: {0, 5, 8, 9, 10} derived from Safety/Operational flags + CVSS impact score
 
-**Affected Users**: {0, 2.5, 6, 8, 10} based on vulnerability location and systemic flag
+**Affected Users**: {0, 2.5, 6, 8, 10} based on vulnerability location
 - Cloud: 10 (fleet-wide OTA distribution)
 - Edge: 6 (regional infrastructure)
 - Vehicle: 2.5 (individual vehicle)
