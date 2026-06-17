@@ -33,46 +33,50 @@ This framework provides automated risk quantification for Over-The-Air (OTA) upd
 
 ---
 
-## 📋 Prerequisites
-
-- Python 3.8+
-- pip (Python package manager)
+## 📋 Requirements
+- **Docker Desktop installed and running.** On Windows/Mac, open Docker Desktop and
+  wait until it shows **"Engine running"** before running any command below.
+- ~4 GB free disk, 4 GB RAM, no GPU needed.
 
 ---
 
-## 🚀 Installation
+## 🚀 Running code
 
 ### 1. Clone the repository
 ```bash
-git clone https://anonymous.4open.science/status/RiskAssessment-2B51
-cd PST26/
+git clone -b OTARS-ATD https://github.com/KhaoulaSghaier/RiskAssessment
+cd RiskAssessment
 ```
-
-### 2. Install dependencies
+### 2. Build the image 
 ```bash
-pip install -r requirements.txt
+docker build -t otarq .
 ```
+This downloads Python, the dependencies, and the all-mpnet-base-v2 model, and
+packages everything with the code.
 
-**requirements.txt:**
+### 3. Start the container
+```bash
+docker run --rm -it otarq
 ```
-pandas>=1.5.0
-numpy>=1.21.0
-sentence-transformers>=2.2.0
-scikit-learn>=1.1.0
-torch>=2.0.0
+This drops you into a shell inside the `PST26/` folder, ready to run the tool.
+
+### 4. Run an analysis
+```bash
+python -m service.analyse.Service \
+  -s "Gateway Firmware Signature Validation Bypass" \
+  -t 0.8 \
+  -d service/analyse/Automotive-threat-database.csv
 ```
+This matches the input threat against the Automotive Threat Database and prints
+the semantic match and the computed risk score.
 
-### 3. Verify database files
-Ensure the following file is in the `service/analyse/` directory:
-- `Automotive-threat-database.csv` (509 automotive vulnerabilities)
-
----
 
 ## 💻 Usage
 
 ### Command-Line Interface
 ```bash
-py -3 -m service.analyse.Service \
+cd PST26
+python -m service.analyse.Service \
   -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability" \
   -t 0.8 \
   -d "service/analyse/Automotive-threat-database.csv" \
@@ -90,81 +94,124 @@ py -3 -m service.analyse.Service \
 
 ## 📊 Output Example
 ```
-================================================================================
-ANALYZING THREAT SCENARIO
-================================================================================
-Query: Firmware Signature Validation Bypass Vulnerability
-ATD Confidence Threshold: 0.8
-Vulnerability Location: CLOUD
-Update Criticality: SAFETY-CRITICAL
-================================================================================
+======================================================================
+OTARQ — AUTOMATED OTA RISK QUANTIFICATION
+======================================================================
+Query              : Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability
+Confidence threshold: 0.8
+Vulnerability layer : CLOUD
+Safety-critical     : YES
+======================================================================
 
-✅ ATD MATCH FOUND (High Confidence)
-   Threat: ATD-37 - CVE-2023-32156
-   Confidence: 0.8897 (88.97%)
-   → Using ATD for risk parameter extraction
+Searching Automotive Threat Database...
+  Loaded ATD: 509 entries
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights: 100%|██████████████████████████████████████████████████████████████| 199/199 [00:00<00:00, 469.16it/s]
+Batches: 100%|███████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00,  5.20it/s]
 
-================================================================================
+   🔍 DEBUG get_dread_damage():
+      safety_flag: 'Yes' (type: <class 'str'>)
+      operational_flag: 'Yes' (type: <class 'str'>)
+      impact_score: 6.0 (type: <class 'float'>)
+      ✓ Safety=Yes branch
+      ✓ impact_score >= 5.0 → damage = 10
+
+  Top match : ATD-37 — CVE-2023-32156
+  Confidence: 0.8608
+
+  Match accepted — extracting risk parameters from ATD entry.
+
+======================================================================
 EXTRACTED RISK PARAMETERS
-================================================================================
-Extraction Method: ATD
---- CVSS Parameters ---
-  Attack Vector: ADJACENT
-  Attack Complexity: LOW
-  Privileges Required: LOW
-  User Interaction: NONE
+======================================================================
 
---- Impact Flags ---
-  Safety: Yes
-  Financial: Yes
-  Operational: Yes
-  Privacy: Yes
-  Systemic: Potentially Systemic
+  CVSS Exploitability
+    Attack Vector      : ADJACENT
+    Attack Complexity  : LOW
+    Privileges Required: LOW
+    User Interaction   : NONE
 
---- DREAD Parameters ---
-  Damage: 10/10 (Safety-critical)
-  Affected Users: 10/10 (Location: CLOUD)
+  TARA Impact (ISO/SAE 21434)
+    Safety             : 1000
+    Financial          : 1000
+    Operational        : 100
+    Privacy            : 100
 
-================================================================================
-RISK ASSESSMENT SCORES
-================================================================================
-🔍 HARA ISO Classes: S3 + E4 + C3
+  HARA Parameters (ISO 26262)
+    Severity           : 10/10  → S3
+    Exposure           : 10/10  → E4
+    Controllability    : 10/10  → C3
 
-TARA (ISO 21434):
-  Impact Sum: 2200 (Severe)
-  Feasibility: 2.07 (Medium)
-  TARA Risk Score: 4.0 / 5.0 (CRITICAL)
+  DREAD Parameters
+    Damage potential   : 10/10
+    Affected users     : 10/10  (layer: cloud)
 
-HARA (ISO 26262):
-  ASIL Determination: (S3, E4, C3) → ASIL D
-  HARA Risk Score: 5.0 / 5.0 (CRITICAL)
+======================================================================
+RISK ASSESSMENT
+======================================================================
+   🔍 HARA ISO Classes: f(S3,E4,C3)
 
-DREAD (Simplified):
-  Damage: 10, Affected Users: 10
-  Average: 10.0
-  DREAD Risk Score: 5.0 / 5.0 (CRITICAL)
+======================================================================
+   TARA PARAMETER BREAKDOWN
+======================================================================
 
-================================================================================
-ADAPTIVE AGGREGATION (Safety-Critical: 50% HARA + 25% TARA + 25% DREAD)
-================================================================================
-  HARA Contribution: 0.50 × 5.0 = 2.50
-  TARA Contribution: 0.25 × 4.0 = 1.00
-  DREAD Contribution: 0.25 × 5.0 = 1.25
+   📊 IMPACT SCORES (Discrete ISO 21434 Values):
+      Safety:       1000  🔴
+      Financial:    1000  🔴
+      Operational:   100  🔴
+      Privacy:       100  🔴
 
-Final Aggregated Risk Score: 4.75 / 5.0
-Risk Level: CRITICAL 🚨
+      Impact Sum:   2200  (max: 2200)
+      Impact Level: Severe
+      Impact Rating: 2
 
-================================================================================
-✅ ANALYSIS COMPLETE
-================================================================================
+   🎯 FEASIBILITY PARAMETERS (CVSS v3.1):
+      Attack Vector (AV):        ADJACENT   → weight: 0.62
+      Attack Complexity (AC):    LOW        → weight: 0.77
+      Privileges Required (PR):  LOW        → weight: 0.62
+      User Interaction (UI):     NONE       → weight: 0.85
+
+      Exploitability Score: 2.07  (formula: 8.22 × 0.62 × 0.77 × 0.62 × 0.85)
+      Feasibility Rating:   1.5
+      Feasibility Level:    Low
+
+   🎯 TARA FINAL RISK:
+      Formula: 1 + (Impact × Feasibility)
+      Risk = 1 + (2 × 1.5)
+      TARA Risk Score: 4.0 / 5.0
+      Classification: 🔴 CRITICAL
+======================================================================
+
+   🔍 DREAD Calculation:
+      Damage: 10
+      Affected Users: 10
+      Average: 10.00
+      Risk (normalized [1,5]): 5.00
+HARA: 5
+TARA: 4.0
+DREAD 5.0
+
+  Final risk score : 4.75 / 5.0
+  Risk level       : CRITICAL 🚨
+  Priority         : 1
+
+======================================================================
+ANALYSIS COMPLETE  (3.593 s)
+======================================================================
+  Risk level : CRITICAL 🚨
+  Risk score : 4.75 / 5.0
 ```
+
+
 
 ---
 
 ## 🏗️ Project Structure
 ```
-ota-risk-assessment/
-├── service/
+RiskAssessment/
+├─PST26
+|___|_automotive_embedding.npy
+|___|_service/
 │   └── analyse/
 │       ├── Service.py              # Main CLI entry point
 │       ├── analyse_automatique.py   # Risk aggregation orchestrator
@@ -174,7 +221,9 @@ ota-risk-assessment/
 │       ├── get_match_atd.py         # Semantic ATD matching (MPNet)
 │       ├── utils.py                 # Database loading utilities
 │       ├── Automotive-threat-database.csv  # Primary threat database
+|       |__threshold.py
 ├── requirements.txt
+|__ Dockerfile
 └── README.md
 ```
 
