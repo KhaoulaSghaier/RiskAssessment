@@ -44,7 +44,7 @@ This framework provides automated risk quantification for Over-The-Air (OTA) upd
 
 ### 1. Clone the repository
 ```bash
-git clone -b OTARS-ATD https://github.com/KhaoulaSghaier/RiskAssessment
+git clone -b OTARQ-ATD https://github.com/KhaoulaSghaier/RiskAssessment
 cd RiskAssessment
 ```
 ### 2. Build the image 
