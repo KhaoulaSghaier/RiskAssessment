@@ -15,7 +15,7 @@ This produces a balanced 50/50 dataset and a PR curve that:
 
 Usage:
     pip install pandas openpyxl sentence-transformers scikit-learn matplotlib
-    python otarq_threshold_extraction.py --atd Automotive-threat-database.csv [--seed 42]
+    python threshold.py --atd Automotive-threat-database.csv [--seed 42]
 """
 
 import argparse
