@@ -73,7 +73,7 @@ python -m service.analyse.Service \
 ```
 **Parameters:**
 - `-s, --scenario`: Natural language description of the vulnerability
-- `-t, --threshold`: ATD confidence threshold (default: 0.8)
+- `-t, --threshold`: ATD confidence threshold (default: 0.5)
 - `-d, --database`: Path to ATD CSV file
 - `--vuln-location`: Vulnerability location (`cloud`, `edge`, or `vehicle`)
 - `--safety-critical`: Flag indicating safety-critical OTA update context (omit for non-critical)
