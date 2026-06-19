@@ -60,30 +60,17 @@ docker run --rm -it otarq
 ```
 This drops you into a shell inside the `PST26/` folder, ready to run the tool.
 
-### 4. Run an analysis
-```bash
-python -m service.analyse.Service \
-  -s "Gateway Firmware Signature Validation Bypass" \
-  -t 0.8 \
-  -d service/analyse/Automotive-threat-database.csv
-```
-This matches the input threat against the Automotive Threat Database and prints
-the semantic match and the computed risk score.
-
 
 ## 💻 Usage
-
-### Command-Line Interface
+### Run an analysis 1 (Table VI, Context A)
 ```bash
 cd PST26
 python -m service.analyse.Service \
   -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability" \
   -t 0.8 \
   -d "service/analyse/Automotive-threat-database.csv" \
-  --vuln-location cloud \
-  --safety-critical
+  --vuln-location vehicle \
 ```
-
 **Parameters:**
 - `-s, --scenario`: Natural language description of the vulnerability
 - `-t, --threshold`: ATD confidence threshold (default: 0.8)
@@ -91,8 +78,128 @@ python -m service.analyse.Service \
 - `--vuln-location`: Vulnerability location (`cloud`, `edge`, or `vehicle`)
 - `--safety-critical`: Flag indicating safety-critical OTA update context (omit for non-critical)
 
+## 📊 Expected Output
+```
+======================================================================
+OTARQ — AUTOMATED OTA RISK QUANTIFICATION
+======================================================================
+Query              : Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability
+Confidence threshold: 0.8
+Vulnerability layer : VEHICLE
+Safety-critical     : NO
+======================================================================
 
-## 📊 Output Example
+Searching Automotive Threat Database...
+  Loaded ATD: 509 entries
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00,  2.44it/s]
+
+   🔍 DEBUG get_dread_damage():
+      safety_flag: 'Yes' (type: <class 'str'>)
+      operational_flag: 'Yes' (type: <class 'str'>)
+      impact_score: 6.0 (type: <class 'float'>)
+      ✓ Safety=Yes branch
+      ✓ impact_score >= 5.0 → damage = 10
+
+  Top match : ATD-37 — CVE-2023-32156
+  Confidence: 0.8608
+
+  Match accepted — extracting risk parameters from ATD entry.
+
+======================================================================
+EXTRACTED RISK PARAMETERS
+======================================================================
+
+  CVSS Exploitability
+    Attack Vector      : ADJACENT
+    Attack Complexity  : LOW
+    Privileges Required: LOW
+    User Interaction   : NONE
+
+  TARA Impact (ISO/SAE 21434)
+    Safety             : 1000
+    Financial          : 1000
+    Operational        : 100
+    Privacy            : 100
+
+  HARA Parameters (ISO 26262)
+    Severity           : 10/10  → S3
+    Exposure           : 10/10  → E4
+    Controllability    : 10/10  → C3
+
+  DREAD Parameters
+    Damage potential   : 10/10
+    Affected users     : 2.5/10  (layer: vehicle)
+
+======================================================================
+RISK ASSESSMENT
+======================================================================
+   🔍 HARA ISO Classes: f(S3,E4,C3)
+
+======================================================================
+   TARA PARAMETER BREAKDOWN
+======================================================================
+
+   📊 IMPACT SCORES (Discrete ISO 21434 Values):
+      Safety:       1000  🔴
+      Financial:    1000  🔴
+      Operational:   100  🔴
+      Privacy:       100  🔴
+
+      Impact Sum:   2200  (max: 2200)
+      Impact Level: Severe
+      Impact Rating: 2
+
+   🎯 FEASIBILITY PARAMETERS (CVSS v3.1):
+      Attack Vector (AV):        ADJACENT   → weight: 0.62
+      Attack Complexity (AC):    LOW        → weight: 0.77
+      Privileges Required (PR):  LOW        → weight: 0.62
+      User Interaction (UI):     NONE       → weight: 0.85
+
+      Exploitability Score: 2.07  (formula: 8.22 × 0.62 × 0.77 × 0.62 × 0.85)
+      Feasibility Rating:   1.5
+      Feasibility Level:    Low
+
+   🎯 TARA FINAL RISK:
+      Formula: 1 + (Impact × Feasibility)
+      Risk = 1 + (2 × 1.5)
+      TARA Risk Score: 4.0 / 5.0
+      Classification: 🔴 CRITICAL
+======================================================================
+
+   🔍 DREAD Calculation:
+      Damage: 10
+      Affected Users: 2.5
+      Average: 6.25
+      Risk (normalized [1,5]): 3.50
+HARA: 5
+TARA: 4.0
+DREAD 3.5
+
+  Final risk score : 4.30 / 5.0
+  Risk level       : HIGH 🔴
+  Priority         : 2
+
+======================================================================
+ANALYSIS COMPLETE  (2.423 s)
+======================================================================
+  Risk level : HIGH 🔴
+  Risk score : 4.30 / 5.0
+```
+
+### Run an analysis 2 (Table VI, Context B)
+```bash
+python -m service.analyse.Service \
+  -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability" \
+  -t 0.8 \
+  -d "service/analyse/Automotive-threat-database.csv" \
+  --vuln-location cloud \
+  --safety-critical
+```
+This matches the input threat against the Automotive Threat Database and prints
+the semantic match and the computed risk score.
+
+
+## 📊 Expected Output
 ```
 ======================================================================
 OTARQ — AUTOMATED OTA RISK QUANTIFICATION
@@ -202,8 +309,21 @@ ANALYSIS COMPLETE  (3.593 s)
   Risk score : 4.75 / 5.0
 ```
 
+Code execution to generate Fig. 3 
 
+python threshold.py --atd Automotive-threat-database.csv
 
+expected output
+```
+====================================================
+  Optimal threshold  τ* = 0.4708
+  Precision at τ*      = 0.8811
+  Recall    at τ*      = 0.8811
+  F1-score  at τ*      = 0.8811
+  AUC-PR               = 0.9582
+====================================================
+pr_curve_otarq.pdf generation
+```
 ---
 
 ## 🏗️ Project Structure
