@@ -311,7 +311,7 @@ ANALYSIS COMPLETE  (3.593 s)
 
 Code execution to generate Fig. 3 
 
-python threshold.py --atd Automotive-threat-database.csv
+python service/analyse/threshold.py --atd service/analyse/Automotive-threat-database.csv
 
 expected output
 ```
