@@ -70,7 +70,7 @@ FeasabilityRating = {
 ImpactRating = {
     'Neglible': 0,
     'Moderate': 1,
-    'Serious': 1.5,
+    'Major': 1.5,
     'Severe': 2,
 }
 
@@ -163,13 +163,13 @@ class TARA:
         print(f"      Feasibility Rating:   {feasibility_rating}")
         
         # Feasibility level
-        if 0.12 <= feasibility_rating <= 1.05:
+        if 0.12 <= exploitability <= 1.05:
             feasibility_level = "Very Low"
-        elif 1.06 < feasibility_rating <= 1.99:
+        elif 1.06 < exploitability <= 1.99:
             feasibility_level = "Low"
-        elif 2 < feasibility_rating <= 2.95:
+        elif 2 < exploitability <= 2.95:
             feasibility_level = "Medium"
-        elif 2.96 < feasibility_rating <= 3.89:
+        elif 2.96 < exploitability <= 3.89:
             feasibility_level = "High"
         else:
             feasibility_level = "Very Low"
@@ -207,7 +207,7 @@ class TARA:
         if impact_sum >= 1000:
             return 'Severe'
         elif impact_sum >= 100:
-            return 'Serious'
+            return 'Major'
         elif impact_sum >= 10:
             return 'Moderate'
         else:
@@ -220,7 +220,7 @@ class TARA:
         impact_rating_map = {
             'Negligible': 0,
             'Moderate': 1,
-            'Serious': 1.5,
+            'Major': 1.5,
             'Severe': 2
         }
         

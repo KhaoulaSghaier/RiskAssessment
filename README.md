@@ -65,11 +65,7 @@ This drops you into a shell inside the `PST26/` folder, ready to run the tool.
 ### Run an analysis 1 (Table VI, Context A)
 ```bash
 cd PST26
-python -m service.analyse.Service \
-  -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability" \
-  -t 0.8 \
-  -d "service/analyse/Automotive-threat-database.csv" \
-  --vuln-location vehicle \
+python -m service.analyse.Service -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability" -t 0.8 -d "service/analyse/Automotive-threat-database.csv"  --vuln-location vehicle
 ```
 **Parameters:**
 - `-s, --scenario`: Natural language description of the vulnerability
@@ -157,7 +153,7 @@ RISK ASSESSMENT
 
       Exploitability Score: 2.07  (formula: 8.22 × 0.62 × 0.77 × 0.62 × 0.85)
       Feasibility Rating:   1.5
-      Feasibility Level:    Low
+      Feasibility Level:    Medium
 
    🎯 TARA FINAL RISK:
       Formula: 1 + (Impact × Feasibility)
@@ -188,12 +184,7 @@ ANALYSIS COMPLETE  (2.423 s)
 
 ### Run an analysis 2 (Table VI, Context B)
 ```bash
-python -m service.analyse.Service \
-  -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability" \
-  -t 0.8 \
-  -d "service/analyse/Automotive-threat-database.csv" \
-  --vuln-location cloud \
-  --safety-critical
+python -m service.analyse.Service -s "Tesla Model 3 Gateway Firmware Signature Validation Bypass Vulnerability"  -t 0.8  -d "service/analyse/Automotive-threat-database.csv"  --vuln-location cloud  --safety-critical
 ```
 This matches the input threat against the Automotive Threat Database and prints
 the semantic match and the computed risk score.
@@ -280,7 +271,7 @@ RISK ASSESSMENT
 
       Exploitability Score: 2.07  (formula: 8.22 × 0.62 × 0.77 × 0.62 × 0.85)
       Feasibility Rating:   1.5
-      Feasibility Level:    Low
+      Feasibility Level:    Medium
 
    🎯 TARA FINAL RISK:
       Formula: 1 + (Impact × Feasibility)
@@ -309,7 +300,7 @@ ANALYSIS COMPLETE  (3.593 s)
   Risk score : 4.75 / 5.0
 ```
 
-Code execution to generate Fig. 3 
+### Code execution to generate Fig. 3 
 
 python service/analyse/threshold.py --atd service/analyse/Automotive-threat-database.csv
 
@@ -325,6 +316,7 @@ expected output
 pr_curve_otarq.pdf generation
 ```
 ---
+**note:** 'threshold.py' fixes a random seed ('--seed', default '42') used by 'numpy.random.default_rng()' to select the negative (different-CWE) pair for each query when constructing the balanced precision-recall evaluation set. 
 
 ## 🏗️ Project Structure
 ```
@@ -356,7 +348,7 @@ RiskAssessment/
 **Model**: all-MPNet-base-v2 (768-dimensional sentence embeddings)
 - Pre-trained on diverse domains with masked and permuted language modeling
 - Cosine similarity matching across 509 ATD entries
-- Confidence threshold filtering (default: 0.8)
+- Confidence threshold filtering (default: 0.5)
 - Flag expert review when ATD confidence is low
 
 **Performance**: 88.97% average confidence on automotive vulnerability descriptions
